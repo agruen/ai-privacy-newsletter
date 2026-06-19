@@ -44,6 +44,16 @@ class Source(SQLModel, table=True):
     last_detail: str = ""
 
 
+class Member(SQLModel, table=True):
+    """An FPF member to watch for in drafts (so we can flag mentions)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    aliases: str = "[]"        # JSON list of alternate names
+    notes: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class TaxonomyCategory(SQLModel, table=True):
     """A privacy-incident taxonomy category (editable from the admin UI)."""
 

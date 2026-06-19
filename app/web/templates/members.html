@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Members — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>FPF members</h1>
+{% if message %}<p class="success">{{ message }}</p>{% endif %}
+<p class="muted">Drafts mentioning any of these names (or aliases) are flagged for
+careful review before publication.</p>
+
+<section class="card">
+  <h2>Add member</h2>
+  <form method="post" action="/members/add">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Name <input type="text" name="name" required></label>
+    <label>Aliases (semicolon-separated) <input type="text" name="aliases" placeholder="Acme Corp; Acme AI"></label>
+    <label>Notes <input type="text" name="notes"></label>
+    <button type="submit" class="btn">Add</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Import CSV</h2>
+  <form method="post" action="/members/import" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <p class="muted">Columns: <code>name</code>, <code>aliases</code> (<code>;</code>-separated), <code>notes</code>.</p>
+    <input type="file" name="file" accept=".csv" required>
+    <button type="submit" class="btn">Import</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>{{ members | length }} member(s)</h2>
+  {% for row in members %}
+  <form method="post" action="/members/{{ row.m.id }}/update" class="member-row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Name <input type="text" name="name" value="{{ row.m.name }}" required></label>
+    <label>Aliases <input type="text" name="aliases" value="{{ row.aliases }}"></label>
+    <label>Notes <input type="text" name="notes" value="{{ row.m.notes }}"></label>
+    <div class="row-actions">
+      <button type="submit" class="btn">Save</button>
+    </div>
+  </form>
+  <form method="post" action="/members/{{ row.m.id }}/delete" class="inline"
+        onsubmit="return confirm('Delete {{ row.m.name }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn secondary">Delete</button>
+  </form>
+  <hr>
+  {% else %}
+  <p class="muted">No members yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}

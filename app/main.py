@@ -20,6 +20,7 @@ from app.web import (
     routes_admin,
     routes_auth,
     routes_incidents,
+    routes_members,
     routes_sources,
     routes_taxonomy,
 )
@@ -69,3 +70,4 @@ app.include_router(routes_admin.router)
 app.include_router(routes_sources.router)
 app.include_router(routes_taxonomy.router)
 app.include_router(routes_incidents.router)
+app.include_router(routes_members.router)
