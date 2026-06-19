@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ nl.period }} draft — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="row-between">
+  <h1>{{ nl.period }} digest
+    <span class="badge badge-{{ 'ok' if nl.status == 'approved' else 'started' }}">{{ nl.status }}</span>
+  </h1>
+  <div class="nav">
+    <a class="btn secondary" href="/newsletters/{{ nl.id }}/export">Export</a>
+    {% if nl.status == 'approved' %}
+    <form method="post" action="/newsletters/{{ nl.id }}/reopen" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn secondary" type="submit">Reopen</button>
+    </form>
+    {% else %}
+    <form method="post" action="/newsletters/{{ nl.id }}/approve" class="inline"
+          onsubmit="return confirm('Approve and lock this issue?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn" type="submit">Approve</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% if message %}<p class="success">{{ message }}</p>{% endif %}
+
+{% if flags %}
+<section class="card warn-banner">
+  <h2>⚠ FPF member mentions ({{ flags | length }})</h2>
+  <p class="muted">Review these carefully before publishing.</p>
+  <ul>
+    {% for f in flags %}
+    <li>
+      <strong>{{ f.member_name }}</strong>
+      {% if f.confirmed is none %}<span class="badge">unconfirmed</span>
+      {% elif f.confirmed %}<span class="badge badge-error">about this member</span>
+      {% else %}<span class="badge badge-ok">likely incidental</span>{% endif %}
+      — <span class="muted">{{ f.note }}</span><br>
+      <small class="muted">matched “{{ f.term }}”: …{{ f.snippet }}…</small>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if nl.status == 'approved' %}
+<p class="muted">This issue is approved and locked. Reopen to edit.</p>
+{% endif %}
+
+<form method="post" action="/newsletters/{{ nl.id }}/edit">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <section class="card">
+    <h2>Editor's note</h2>
+    <textarea name="editor_note" rows="4">{{ content.editor_note }}</textarea>
+  </section>
+
+  <section class="card">
+    <h2>Featured stories</h2>
+    {% for f in content.featured %}
+    {% set i = loop.index0 %}
+    <div class="story">
+      <input type="hidden" name="featured-{{ i }}-incident_external_id" value="{{ f.incident_external_id }}">
+      <label>Headline <input type="text" name="featured-{{ i }}-headline" value="{{ f.headline }}"></label>
+      <label>What happened <textarea name="featured-{{ i }}-what_happened" rows="2">{{ f.what_happened }}</textarea></label>
+      <label>Mechanism that failed <textarea name="featured-{{ i }}-mechanism_failed" rows="2">{{ f.mechanism_failed }}</textarea></label>
+      <label>Regulatory regime <textarea name="featured-{{ i }}-regime_applies" rows="2">{{ f.regime_applies }}</textarea></label>
+      <label>Standard-of-care debate <textarea name="featured-{{ i }}-standard_of_care" rows="2">{{ f.standard_of_care }}</textarea></label>
+      <label class="checkbox"><input type="checkbox" name="featured-{{ i }}-remove"> remove this story</label>
+    </div>
+    {% endfor %}
+    {% set ni = content.featured | length %}
+    <details class="story">
+      <summary>+ Add a featured story</summary>
+      <input type="hidden" name="featured-{{ ni }}-incident_external_id" value="">
+      <label>Headline <input type="text" name="featured-{{ ni }}-headline"></label>
+      <label>What happened <textarea name="featured-{{ ni }}-what_happened" rows="2"></textarea></label>
+      <label>Mechanism that failed <textarea name="featured-{{ ni }}-mechanism_failed" rows="2"></textarea></label>
+      <label>Regulatory regime <textarea name="featured-{{ ni }}-regime_applies" rows="2"></textarea></label>
+      <label>Standard-of-care debate <textarea name="featured-{{ ni }}-standard_of_care" rows="2"></textarea></label>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Brief mentions</h2>
+    {% for b in content.brief_mentions %}
+    {% set i = loop.index0 %}
+    <div class="brief-row">
+      <input type="hidden" name="brief-{{ i }}-incident_external_id" value="{{ b.incident_external_id }}">
+      <textarea name="brief-{{ i }}-summary" rows="2">{{ b.summary }}</textarea>
+      <label class="checkbox"><input type="checkbox" name="brief-{{ i }}-remove"> remove</label>
+    </div>
+    {% endfor %}
+    {% set nb = content.brief_mentions | length %}
+    <div class="brief-row">
+      <input type="hidden" name="brief-{{ nb }}-incident_external_id" value="">
+      <textarea name="brief-{{ nb }}-summary" rows="2" placeholder="Add a brief mention…"></textarea>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Recommended reading</h2>
+    {% for r in content.recommended_reading %}
+    {% set i = loop.index0 %}
+    <div class="brief-row">
+      <input type="text" name="reading-{{ i }}-title" value="{{ r.title }}" placeholder="Title">
+      <input type="text" name="reading-{{ i }}-url" value="{{ r.url }}" placeholder="URL">
+      <input type="text" name="reading-{{ i }}-note" value="{{ r.note }}" placeholder="Note">
+      <label class="checkbox"><input type="checkbox" name="reading-{{ i }}-remove"> remove</label>
+    </div>
+    {% endfor %}
+    {% set nr = content.recommended_reading | length %}
+    <div class="brief-row">
+      <input type="text" name="reading-{{ nr }}-title" placeholder="Title">
+      <input type="text" name="reading-{{ nr }}-url" placeholder="URL">
+      <input type="text" name="reading-{{ nr }}-note" placeholder="Note">
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>What to watch next month</h2>
+    <textarea name="forward_look" rows="4">{{ content.forward_look }}</textarea>
+  </section>
+
+  <button type="submit" class="btn">Save changes</button>
+</form>
+
+{% if pool %}
+<section class="card">
+  <h2>Candidate pool ({{ pool | length }})</h2>
+  <p class="muted">Other privacy incidents this month — pull one in by adding a story above.</p>
+  <table class="table">
+    <thead><tr><th>Date</th><th>Title</th><th>id</th></tr></thead>
+    <tbody>
+      {% for inc in pool %}
+      <tr>
+        <td>{{ inc.incident_date }}</td>
+        <td><a href="{{ inc.url }}" target="_blank" rel="noopener">{{ inc.title }}</a></td>
+        <td>{{ inc.external_id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

@@ -96,3 +96,13 @@ input[type=text], input[type=password], input[type=email], textarea, select {
 .checkbox { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 400; }
 .checkbox input { width: auto; margin: 0; }
 .pager { display: flex; gap: 0.75rem; margin: 1rem 0; }
+
+textarea { display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;
+  border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+textarea.copied { outline: 2px solid var(--ok); }
+
+.warn-banner { border-left: 4px solid var(--warn); background: #fff8e6; }
+.story { border: 1px dashed var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.brief-row { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+.brief-row textarea, .brief-row input[type=text] { margin-top: 0; }
+.brief-row .checkbox { white-space: nowrap; }

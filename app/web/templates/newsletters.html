@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Newsletters — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Newsletters</h1>
+{% if message %}<p class="success">{{ message }}</p>{% endif %}
+
+<section class="card">
+  <h2>Generate a draft</h2>
+  <form method="post" action="/newsletters/generate" class="filters">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Month (YYYY-MM)
+      <input type="text" name="period" value="{{ default_period }}" required>
+    </label>
+    <button type="submit" class="btn">Generate</button>
+  </form>
+  <p class="muted">Drafting runs in the background and uses the Anthropic API.
+    Refresh in a moment for the new issue.</p>
+</section>
+
+<section class="card">
+  <table class="table">
+    <thead><tr><th>Period</th><th>Status</th><th>Created (UTC)</th><th>Note</th><th></th></tr></thead>
+    <tbody>
+      {% for n in newsletters %}
+      <tr>
+        <td>{{ n.period }}</td>
+        <td><span class="badge badge-{{ 'ok' if n.status == 'approved' else 'started' }}">{{ n.status }}</span></td>
+        <td>{{ n.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ n.error if n.error else n.note }}</td>
+        <td><a href="/newsletters/{{ n.id }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No newsletters yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

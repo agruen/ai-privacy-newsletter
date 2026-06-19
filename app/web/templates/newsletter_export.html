@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Export {{ nl.period }} — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="row-between">
+  <h1>Export — {{ nl.period }} digest</h1>
+  <a class="btn secondary" href="/newsletters/{{ nl.id }}">← Back to draft</a>
+</div>
+<p class="muted">Copy or download, then paste into the FPF sending tool.</p>
+
+{% macro block(label, fmt, body) %}
+<section class="card">
+  <div class="row-between">
+    <h2>{{ label }}</h2>
+    <div class="nav">
+      <button type="button" class="btn secondary" onclick="copyText('{{ fmt }}')">Copy</button>
+      <a class="btn secondary" href="/newsletters/{{ nl.id }}/download?fmt={{ fmt }}">Download</a>
+    </div>
+  </div>
+  <textarea id="export-{{ fmt }}" rows="14" readonly>{{ body }}</textarea>
+</section>
+{% endmacro %}
+
+{{ block("Markdown", "md", markdown) }}
+{{ block("Rich HTML", "html", html) }}
+{{ block("Plain text", "txt", text) }}
+
+<script>
+function copyText(fmt) {
+  const el = document.getElementById('export-' + fmt);
+  navigator.clipboard.writeText(el.value).then(() => {
+    el.classList.add('copied');
+    setTimeout(() => el.classList.remove('copied'), 600);
+  });
+}
+</script>
+{% endblock %}
