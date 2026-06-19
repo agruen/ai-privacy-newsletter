@@ -1,0 +1,45 @@
+"""Application configuration, loaded from environment / .env."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="APN_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Core
+    app_name: str = "AI Privacy Incident Digest"
+    environment: str = "development"
+    secret_key: str = "change-me-in-production"
+
+    # Storage — directory is mounted as a volume in Docker.
+    data_dir: str = "/data"
+    database_url: str = ""  # derived from data_dir if empty
+
+    # Scheduler (cron expressions; see APScheduler CronTrigger).
+    scheduler_enabled: bool = True
+    daily_ingest_cron: str = "0 7 * * *"      # 07:00 daily
+    monthly_synth_cron: str = "0 8 1 * *"     # 08:00 on the 1st
+
+    # LLM (used for monthly synthesis only in v1).
+    anthropic_api_key: str = ""
+    anthropic_monthly_budget_usd: float = 100.0
+
+    @property
+    def resolved_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        return f"sqlite:///{self.data_dir.rstrip('/')}/digest.db"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

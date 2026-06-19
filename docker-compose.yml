@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    image: ai-privacy-newsletter:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - digest_data:/data
+
+  # Optional HTTPS reverse proxy. Enable with:
+  #   docker compose --profile tls up -d
+  # and set DOMAIN in your environment.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  digest_data:
+  caddy_data:
+  caddy_config:

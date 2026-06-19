@@ -1,0 +1,68 @@
+"""APScheduler setup: daily ingestion and monthly synthesis jobs.
+
+Phase 0 wires the scheduler with placeholder jobs that log a Run row. The real
+ingest/synthesis logic is implemented in later phases.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from sqlmodel import Session
+
+from app.config import get_settings
+from app.db import engine
+from app.models import Run, utcnow
+
+logger = logging.getLogger(__name__)
+scheduler = BackgroundScheduler(timezone="UTC")
+
+
+def _record_run(job: str, status: str, detail: str = "") -> None:
+    with Session(engine) as session:
+        run = Run(job=job, status=status, detail=detail, finished_at=utcnow())
+        session.add(run)
+        session.commit()
+
+
+def daily_ingest() -> None:
+    """Placeholder: ingest + classify new incidents (implemented in Phase 2/3)."""
+    logger.info("daily_ingest: placeholder run")
+    _record_run("daily_ingest", "ok", "placeholder")
+
+
+def monthly_synth() -> None:
+    """Placeholder: draft the monthly newsletter (implemented in Phase 5)."""
+    logger.info("monthly_synth: placeholder run")
+    _record_run("monthly_synth", "ok", "placeholder")
+
+
+def start_scheduler() -> None:
+    settings = get_settings()
+    if not settings.scheduler_enabled:
+        logger.info("scheduler disabled via settings")
+        return
+    if scheduler.running:
+        return
+
+    scheduler.add_job(
+        daily_ingest,
+        CronTrigger.from_crontab(settings.daily_ingest_cron, timezone="UTC"),
+        id="daily_ingest",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        monthly_synth,
+        CronTrigger.from_crontab(settings.monthly_synth_cron, timezone="UTC"),
+        id="monthly_synth",
+        replace_existing=True,
+    )
+    scheduler.start()
+    logger.info("scheduler started")
+
+
+def stop_scheduler() -> None:
+    if scheduler.running:
+        scheduler.shutdown(wait=False)

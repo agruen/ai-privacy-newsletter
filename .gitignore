@@ -1,5 +1,24 @@
 # Local Claude Code settings
 .claude/settings.local.json
 
+# Secrets / local env
+.env
+.env.*
+!.env.example
+
+# Local data / SQLite
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
 # macOS
 .DS_Store
