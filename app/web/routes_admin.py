@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.auth import hash_password, require_user, verify_csrf, verify_password
 from app.config import get_settings
 from app.db import get_session
-from app.models import AppUser, Run
+from app.llm import month_spend
+from app.models import AppUser, Incident, Newsletter, Run
 from app.web.templating import render
 
 router = APIRouter()
@@ -21,10 +22,34 @@ def dashboard(
     user: AppUser = Depends(require_user),
     session: Session = Depends(get_session),
 ):
+    settings = get_settings()
     recent_runs = session.exec(
         select(Run).order_by(Run.started_at.desc()).limit(10)
     ).all()
-    return render(request, "dashboard.html", {"recent_runs": recent_runs})
+    latest = session.exec(
+        select(Newsletter).order_by(Newsletter.created_at.desc())
+    ).first()
+    privacy = session.exec(
+        select(func.count()).select_from(Incident).where(Incident.is_privacy == True)  # noqa: E712
+    ).one()
+    pending = session.exec(
+        select(func.count()).select_from(Incident).where(Incident.status == "pending")
+    ).one()
+    spend = month_spend(session)
+    budget = settings.anthropic_monthly_budget_usd
+    return render(
+        request,
+        "dashboard.html",
+        {
+            "recent_runs": recent_runs,
+            "latest": latest,
+            "privacy_count": privacy,
+            "pending_count": pending,
+            "spend": spend,
+            "budget": budget,
+            "spend_pct": min(100, round(spend / budget * 100)) if budget else 0,
+        },
+    )
 
 
 @router.get("/settings")

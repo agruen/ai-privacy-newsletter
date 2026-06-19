@@ -2,8 +2,33 @@
 {% block title %}Dashboard — {{ app_name }}{% endblock %}
 {% block content %}
 <h1>Dashboard</h1>
-<p class="muted">Ingestion, classification, and the monthly draft review land here as
-later phases ship.</p>
+
+<div class="cards-row">
+  <section class="card stat">
+    <h2>This month's draft</h2>
+    {% if latest %}
+    <p><a href="/newsletters/{{ latest.id }}">{{ latest.period }}</a>
+      <span class="badge badge-{{ 'ok' if latest.status == 'approved' else 'started' }}">{{ latest.status }}</span></p>
+    <p class="muted">{{ latest.error if latest.error else latest.note }}</p>
+    {% else %}
+    <p class="muted">No drafts yet. <a href="/newsletters">Generate one →</a></p>
+    {% endif %}
+  </section>
+
+  <section class="card stat">
+    <h2>Incidents</h2>
+    <p><strong>{{ privacy_count }}</strong> privacy-tagged</p>
+    <p class="muted">{{ pending_count }} pending classification</p>
+    <p><a href="/incidents">Browse →</a></p>
+  </section>
+
+  <section class="card stat">
+    <h2>LLM spend (this month)</h2>
+    <p><strong>${{ "%.2f"|format(spend) }}</strong> of ${{ "%.0f"|format(budget) }}</p>
+    <div class="meter"><div class="meter-fill" style="width: {{ spend_pct }}%"></div></div>
+    {% if spend_pct >= 100 %}<p class="error">Budget reached — LLM work is paused.</p>{% endif %}
+  </section>
+</div>
 
 <section class="card">
   <h2>Recent job runs</h2>
@@ -22,7 +47,7 @@ later phases ship.</p>
     </tbody>
   </table>
   {% else %}
-  <p class="muted">No runs yet.</p>
+  <p class="muted">No runs yet. Trigger one from <a href="/sources">Sources</a>.</p>
   {% endif %}
 </section>
 {% endblock %}
