@@ -7,6 +7,7 @@ ingest/synthesis logic is implemented in later phases.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -45,10 +46,35 @@ def daily_ingest() -> None:
     _record_run("daily_ingest", status, detail)
 
 
+def previous_month(now=None) -> str:
+    """Return the previous calendar month as 'YYYY-MM' (UTC)."""
+    now = now or utcnow()
+    first = now.replace(day=1)
+    prev = first - timedelta(days=1)
+    return prev.strftime("%Y-%m")
+
+
+def generate_for_period(period: str) -> str:
+    """Generate a draft for a period; returns a status detail string."""
+    from app.llm import get_llm
+    from app.synth.compose import generate_newsletter
+
+    settings = get_settings()
+    with Session(engine) as session:
+        llm = get_llm(settings.anthropic_api_key)
+        nl = generate_newsletter(session, period, llm, settings)
+        return f"period {period}: newsletter #{nl.id} ({nl.note})"
+
+
 def monthly_synth() -> None:
-    """Placeholder: draft the monthly newsletter (implemented in Phase 5)."""
-    logger.info("monthly_synth: placeholder run")
-    _record_run("monthly_synth", "ok", "placeholder")
+    """Draft the previous month's newsletter for human review."""
+    period = previous_month()
+    try:
+        detail = generate_for_period(period)
+        _record_run("monthly_synth", "ok", detail)
+    except Exception as exc:  # surfaced on the dashboard
+        logger.exception("monthly_synth failed")
+        _record_run("monthly_synth", "error", f"{period}: {exc}")
 
 
 def start_scheduler() -> None:

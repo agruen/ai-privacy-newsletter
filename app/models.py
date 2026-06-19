@@ -95,6 +95,59 @@ class Incident(SQLModel, table=True):
     last_seen: datetime = Field(default_factory=utcnow)
 
 
+class Newsletter(SQLModel, table=True):
+    """A monthly draft newsletter (structured content stored as JSON)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    period: str = Field(index=True)            # "YYYY-MM"
+    status: str = Field(default="draft", index=True)  # draft | approved
+    content_json: str = "{}"                   # structured sections
+    note: str = ""                             # generation note
+    error: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    approved_at: datetime | None = None
+
+
+class NewsletterItem(SQLModel, table=True):
+    """An incident's role within a newsletter issue."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    newsletter_id: int = Field(index=True, foreign_key="newsletter.id")
+    incident_id: int = Field(foreign_key="incident.id")
+    role: str = "pool"                         # featured | brief | pool
+    rank: int = 0
+    score: float = 0.0
+
+
+class MemberFlag(SQLModel, table=True):
+    """A flagged mention of an FPF member in a draft."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    newsletter_id: int = Field(index=True, foreign_key="newsletter.id")
+    member_id: int | None = Field(default=None, foreign_key="member.id")
+    member_name: str = ""
+    term: str = ""
+    section: str = ""
+    snippet: str = ""
+    confirmed: bool | None = None              # None = not LLM-confirmed
+    note: str = ""
+
+
+class LLMUsage(SQLModel, table=True):
+    """One LLM API call's token usage and computed cost."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    ts: datetime = Field(default_factory=utcnow, index=True)
+    purpose: str = ""                          # synthesis | member_confirm
+    model: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    cost_usd: float = 0.0
+    newsletter_id: int | None = None
+
+
 class Run(SQLModel, table=True):
     """A record of a scheduled or manual job execution."""
 
