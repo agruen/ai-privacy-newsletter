@@ -1,13 +1,5 @@
 """Smoke tests for the scaffold and auth flow."""
 
-import os
-import tempfile
-
-os.environ.setdefault("APN_DATA_DIR", tempfile.mkdtemp())
-os.environ.setdefault("APN_SCHEDULER_ENABLED", "false")
-os.environ.setdefault("APN_ADMIN_USERNAME", "admin")
-os.environ.setdefault("APN_ADMIN_PASSWORD", "supersecret-pw-123")
-
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402

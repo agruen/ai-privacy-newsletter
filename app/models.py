@@ -32,6 +32,49 @@ class Setting(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+class Source(SQLModel, table=True):
+    """An ingestion source (one connector). v1 ships a single AIID source."""
+
+    name: str = Field(primary_key=True)        # e.g. "aiid"
+    kind: str = ""                             # connector kind, e.g. "aiid_snapshot"
+    enabled: bool = True
+    cursor: str = ""                           # opaque per-connector position
+    last_run: datetime | None = None
+    last_status: str = ""                      # ok | error
+    last_detail: str = ""
+
+
+class Incident(SQLModel, table=True):
+    """An ingested incident, plus classification once it has run.
+
+    For the single-source v1 we keep raw ingestion and classification on one
+    row (with the full source payload retained in ``raw_payload``). The
+    ``source``/``external_id``/``dedup_key`` columns keep multi-source open.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    source: str = Field(index=True)
+    external_id: str = Field(index=True)
+    dedup_key: str = Field(index=True, unique=True)
+
+    title: str = ""
+    description: str = ""
+    url: str = ""
+    incident_date: str = ""                    # ISO date string as provided
+    raw_payload: str = "{}"                    # JSON of the source record
+
+    # Classification (filled by the classifier in Phase 3).
+    status: str = Field(default="pending", index=True)  # pending|classified|not_privacy|needs_review
+    is_privacy: bool = False
+    categories: str = "[]"                     # JSON list of taxonomy category keys
+    confidence: float = 0.0
+    decided_by: str = ""                       # e.g. "aiid_tags:MIT"
+    classified_at: datetime | None = None
+
+    first_seen: datetime = Field(default_factory=utcnow)
+    last_seen: datetime = Field(default_factory=utcnow)
+
+
 class Run(SQLModel, table=True):
     """A record of a scheduled or manual job execution."""
 

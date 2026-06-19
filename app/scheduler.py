@@ -28,9 +28,19 @@ def _record_run(job: str, status: str, detail: str = "") -> None:
 
 
 def daily_ingest() -> None:
-    """Placeholder: ingest + classify new incidents (implemented in Phase 2/3)."""
-    logger.info("daily_ingest: placeholder run")
-    _record_run("daily_ingest", "ok", "placeholder")
+    """Ingest new incidents from all enabled sources."""
+    from app.ingest.runner import run_ingest
+
+    with Session(engine) as session:
+        summaries = run_ingest(session)
+
+    parts = [
+        f"{s.source}: +{s.created}/{s.updated}u" + (f" ERR {s.error}" if s.error else "")
+        for s in summaries
+    ]
+    detail = "; ".join(parts)
+    status = "error" if any(s.error for s in summaries) else "ok"
+    _record_run("daily_ingest", status, detail)
 
 
 def monthly_synth() -> None:

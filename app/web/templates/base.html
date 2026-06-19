@@ -12,6 +12,7 @@
     {% if user %}
     <nav class="nav">
       <a href="/">Dashboard</a>
+      <a href="/sources">Sources</a>
       <a href="/settings">Settings</a>
       <form method="post" action="/logout" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

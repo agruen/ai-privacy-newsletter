@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sources — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Sources</h1>
+{% if message %}<p class="success">{{ message }}</p>{% endif %}
+
+<section class="card">
+  <div class="row-between">
+    <h2>Ingestion</h2>
+    <form method="post" action="/sources/ingest" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">Run ingest now</button>
+    </form>
+  </div>
+  <p class="muted">Incidents: <strong>{{ counts.total }}</strong> total ·
+    <strong>{{ counts.privacy }}</strong> privacy ·
+    <strong>{{ counts.pending }}</strong> pending classification</p>
+
+  <table class="table">
+    <thead><tr><th>Source</th><th>Kind</th><th>Enabled</th><th>Last run (UTC)</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for s in sources %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td>{{ s.kind }}</td>
+        <td>{{ "yes" if s.enabled else "no" }}</td>
+        <td>{{ s.last_run.strftime("%Y-%m-%d %H:%M") if s.last_run else "—" }}</td>
+        <td>{% if s.last_status %}<span class="badge badge-{{ s.last_status }}">{{ s.last_status }}</span>{% else %}—{% endif %}</td>
+        <td>{{ s.last_detail }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">AIID publishes weekly snapshots, so a daily run is a no-op until a new one appears.</p>
+</section>
+{% endblock %}

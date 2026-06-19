@@ -88,3 +88,5 @@ input[type=text], input[type=password], input[type=email], textarea, select {
 .badge-ok { background: #e4f4ea; color: var(--ok); }
 .badge-error { background: #fbe4e8; color: var(--err); }
 .badge-started { background: #eef3fb; color: var(--accent); }
+
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
