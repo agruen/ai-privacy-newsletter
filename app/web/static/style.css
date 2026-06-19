@@ -3,6 +3,10 @@
   --muted: #666;
   --accent: #1a4d8f;
   --bg: #fafafa;
+  --border: #e2e2e2;
+  --ok: #1f7a3d;
+  --err: #b00020;
+  --warn: #9a6700;
 }
 
 * { box-sizing: border-box; }
@@ -19,14 +23,68 @@ body {
   background: var(--accent);
   color: #fff;
   padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.topbar .brand { font-weight: 600; }
+.topbar .brand { font-weight: 600; color: #fff; text-decoration: none; }
+.nav { display: flex; align-items: center; gap: 1rem; }
+.nav a { color: #fff; text-decoration: none; opacity: 0.9; }
+.nav a:hover { opacity: 1; }
+.inline { display: inline; margin: 0; }
+.linkbtn {
+  background: none; border: none; color: #fff; cursor: pointer;
+  font: inherit; opacity: 0.9; padding: 0;
+}
+.linkbtn:hover { opacity: 1; text-decoration: underline; }
 
 .container {
-  max-width: 880px;
+  max-width: 960px;
   margin: 2rem auto;
   padding: 0 1.25rem;
 }
 
 a { color: var(--accent); }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.25rem 0;
+}
+.card.narrow { max-width: 380px; margin: 3rem auto; }
+
+label { display: block; margin: 0.75rem 0; font-weight: 500; }
+input[type=text], input[type=password], input[type=email], textarea, select {
+  display: block; width: 100%; margin-top: 0.25rem;
+  padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;
+  font: inherit;
+}
+
+.btn {
+  background: var(--accent); color: #fff; border: none; cursor: pointer;
+  padding: 0.55rem 1rem; border-radius: 6px; font: inherit; margin-top: 0.5rem;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td {
+  text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.table th { color: var(--muted); font-weight: 600; }
+
+.muted { color: var(--muted); }
+.error { color: var(--err); }
+.success { color: var(--ok); }
+
+.badge {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+  font-size: 0.8rem; background: #eee;
+}
+.badge-ok { background: #e4f4ea; color: var(--ok); }
+.badge-error { background: #fbe4e8; color: var(--err); }
+.badge-started { background: #eef3fb; color: var(--accent); }

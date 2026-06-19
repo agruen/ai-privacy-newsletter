@@ -8,7 +8,17 @@
 </head>
 <body>
   <header class="topbar">
-    <span class="brand">{{ app_name }}</span>
+    <a class="brand" href="/">{{ app_name }}</a>
+    {% if user %}
+    <nav class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/settings">Settings</a>
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="linkbtn">Log out</button>
+      </form>
+    </nav>
+    {% endif %}
   </header>
   <main class="container">
     {% block content %}{% endblock %}

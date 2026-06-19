@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Settings — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+{% if message %}<p class="success">{{ message }}</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<section class="card">
+  <h2>Configuration</h2>
+  <p class="muted">Set via environment variables (<code>APN_*</code>); shown here for reference.</p>
+  <table class="table">
+    <tbody>
+      <tr><th>Environment</th><td>{{ settings.environment }}</td></tr>
+      <tr><th>Data dir</th><td>{{ settings.data_dir }}</td></tr>
+      <tr><th>Scheduler enabled</th><td>{{ settings.scheduler_enabled }}</td></tr>
+      <tr><th>Daily ingest (cron, UTC)</th><td>{{ settings.daily_ingest_cron }}</td></tr>
+      <tr><th>Monthly synth (cron, UTC)</th><td>{{ settings.monthly_synth_cron }}</td></tr>
+      <tr><th>Anthropic key set</th><td>{{ "yes" if settings.anthropic_api_key else "no" }}</td></tr>
+      <tr><th>LLM monthly budget</th><td>${{ "%.0f"|format(settings.anthropic_monthly_budget_usd) }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Change password</h2>
+  <form method="post" action="/settings/password">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Current password
+      <input type="password" name="current_password" autocomplete="current-password" required>
+    </label>
+    <label>New password (min 12 chars)
+      <input type="password" name="new_password" autocomplete="new-password" required>
+    </label>
+    <label>Confirm new password
+      <input type="password" name="confirm_password" autocomplete="new-password" required>
+    </label>
+    <button type="submit" class="btn">Update password</button>
+  </form>
+</section>
+{% endblock %}

@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     data_dir: str = "/data"
     database_url: str = ""  # derived from data_dir if empty
 
+    # Admin bootstrap. On first run, if no user exists and these are set,
+    # the single admin account is created from them.
+    admin_username: str = "admin"
+    admin_password: str = ""
+
     # Scheduler (cron expressions; see APScheduler CronTrigger).
     scheduler_enabled: bool = True
     daily_ingest_cron: str = "0 7 * * *"      # 07:00 daily

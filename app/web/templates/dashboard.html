@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<p class="muted">Ingestion, classification, and the monthly draft review land here as
+later phases ship.</p>
+
+<section class="card">
+  <h2>Recent job runs</h2>
+  {% if recent_runs %}
+  <table class="table">
+    <thead><tr><th>Job</th><th>Status</th><th>Detail</th><th>Started (UTC)</th></tr></thead>
+    <tbody>
+      {% for run in recent_runs %}
+      <tr>
+        <td>{{ run.job }}</td>
+        <td><span class="badge badge-{{ run.status }}">{{ run.status }}</span></td>
+        <td>{{ run.detail }}</td>
+        <td>{{ run.started_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No runs yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

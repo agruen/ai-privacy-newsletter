@@ -15,6 +15,15 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class AppUser(SQLModel, table=True):
+    """The single admin user (the design assumes one operator)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True)
+    password_hash: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class Setting(SQLModel, table=True):
     """Simple key/value application settings, editable from the admin UI."""
 
