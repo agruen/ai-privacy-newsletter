@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Taxonomy — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Privacy-incident taxonomy</h1>
+{% if message %}<p class="success">{{ message }}</p>{% endif %}
+<p class="muted">Categories applied to classified incidents. The tag-based
+classifier maps AIID's MIT taxonomy onto these; an LLM classifier can use the
+full set later.</p>
+
+{% for c in categories %}
+<section class="card">
+  <form method="post" action="/taxonomy/{{ c.key }}/update">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="row-between">
+      <h2><code>{{ c.key }}</code></h2>
+      <label class="checkbox">
+        <input type="checkbox" name="enabled" {% if c.enabled %}checked{% endif %}> enabled
+      </label>
+    </div>
+    <label>Label <input type="text" name="label" value="{{ c.label }}" required></label>
+    <label>Description <input type="text" name="description" value="{{ c.description }}"></label>
+    <button type="submit" class="btn">Save</button>
+  </form>
+  <form method="post" action="/taxonomy/{{ c.key }}/delete" class="inline"
+        onsubmit="return confirm('Delete category {{ c.key }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn secondary">Delete</button>
+  </form>
+</section>
+{% endfor %}
+
+<section class="card">
+  <h2>Add category</h2>
+  <form method="post" action="/taxonomy/add">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Label <input type="text" name="label" required></label>
+    <label>Description <input type="text" name="description"></label>
+    <button type="submit" class="btn">Add</button>
+  </form>
+</section>
+{% endblock %}

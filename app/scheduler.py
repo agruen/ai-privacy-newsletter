@@ -28,17 +28,19 @@ def _record_run(job: str, status: str, detail: str = "") -> None:
 
 
 def daily_ingest() -> None:
-    """Ingest new incidents from all enabled sources."""
+    """Ingest new incidents from all enabled sources, then classify pending."""
+    from app.classify.runner import classify_pending
     from app.ingest.runner import run_ingest
 
     with Session(engine) as session:
         summaries = run_ingest(session)
+        classified = classify_pending(session)
 
     parts = [
         f"{s.source}: +{s.created}/{s.updated}u" + (f" ERR {s.error}" if s.error else "")
         for s in summaries
     ]
-    detail = "; ".join(parts)
+    detail = "; ".join(parts) + f"; classified {classified}"
     status = "error" if any(s.error for s in summaries) else "ok"
     _record_run("daily_ingest", status, detail)
 

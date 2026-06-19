@@ -44,6 +44,16 @@ class Source(SQLModel, table=True):
     last_detail: str = ""
 
 
+class TaxonomyCategory(SQLModel, table=True):
+    """A privacy-incident taxonomy category (editable from the admin UI)."""
+
+    key: str = Field(primary_key=True)        # stable slug, e.g. "pii_leakage"
+    label: str = ""
+    description: str = ""
+    enabled: bool = True
+    sort_order: int = 0
+
+
 class Incident(SQLModel, table=True):
     """An ingested incident, plus classification once it has run.
 

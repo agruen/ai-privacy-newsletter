@@ -15,8 +15,14 @@ from app.auth import NotAuthenticated, bootstrap_admin
 from app.config import get_settings
 from app.db import init_db
 from app.scheduler import start_scheduler, stop_scheduler
-from app.seed import seed_sources
-from app.web import routes_admin, routes_auth, routes_sources
+from app.seed import seed_sources, seed_taxonomy
+from app.web import (
+    routes_admin,
+    routes_auth,
+    routes_incidents,
+    routes_sources,
+    routes_taxonomy,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,6 +36,7 @@ async def lifespan(_app: FastAPI):
     init_db()
     bootstrap_admin()
     seed_sources()
+    seed_taxonomy()
     start_scheduler()
     logger.info("%s started (%s)", settings.app_name, settings.environment)
     try:
@@ -60,3 +67,5 @@ def healthz() -> JSONResponse:
 app.include_router(routes_auth.router)
 app.include_router(routes_admin.router)
 app.include_router(routes_sources.router)
+app.include_router(routes_taxonomy.router)
+app.include_router(routes_incidents.router)

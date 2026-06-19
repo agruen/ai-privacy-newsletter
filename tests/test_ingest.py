@@ -71,6 +71,9 @@ def test_run_ingest_upserts(monkeypatch):
         )
 
         with Session(engine) as session:
+            for r in session.exec(select(Incident)).all():
+                session.delete(r)
+            session.commit()
             src = session.get(Source, "aiid") or Source(name="aiid", kind="aiid_snapshot")
             session.add(src)
             session.commit()

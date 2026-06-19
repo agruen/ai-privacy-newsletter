@@ -48,9 +48,12 @@ def sources_page(
 
 
 def run_ingest_job() -> None:
-    """Run ingest with its own DB session (used as a background task)."""
+    """Run ingest + classify with its own DB session (background task)."""
+    from app.classify.runner import classify_pending
+
     with Session(engine) as session:
         run_ingest(session)
+        classify_pending(session)
 
 
 @router.post("/sources/ingest")

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Incidents — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Incidents</h1>
+
+<form method="get" action="/incidents" class="filters card">
+  <label>Filter
+    <select name="status">
+      {% for s in status_choices %}
+      <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Search title <input type="text" name="q" value="{{ q }}"></label>
+  <label>Month (YYYY-MM) <input type="text" name="month" value="{{ month }}" placeholder="2026-05"></label>
+  <button type="submit" class="btn">Apply</button>
+</form>
+
+<p class="muted">{{ total }} matching · page {{ page }}</p>
+
+<table class="table">
+  <thead><tr><th>Date</th><th>Title</th><th>Status</th><th>Categories</th></tr></thead>
+  <tbody>
+    {% for item in incidents %}
+    <tr>
+      <td>{{ item.row.incident_date }}</td>
+      <td><a href="{{ item.row.url }}" target="_blank" rel="noopener">{{ item.row.title }}</a></td>
+      <td>
+        <span class="badge badge-{{ 'ok' if item.row.is_privacy else 'started' }}">{{ item.row.status }}</span>
+      </td>
+      <td>{{ item.categories | join(", ") }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="muted">No incidents match.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="pager">
+  {% if page > 1 %}
+  <a class="btn secondary" href="/incidents?status={{ status }}&q={{ q }}&month={{ month }}&page={{ page - 1 }}">← Prev</a>
+  {% endif %}
+  {% if has_next %}
+  <a class="btn secondary" href="/incidents?status={{ status }}&q={{ q }}&month={{ month }}&page={{ page + 1 }}">Next →</a>
+  {% endif %}
+</div>
+{% endblock %}
