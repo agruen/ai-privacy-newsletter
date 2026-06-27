@@ -48,7 +48,15 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    # Secure cookie in production (served via the Caddy TLS profile). Left off in
+    # development so loopback HTTP still works.
+    https_only=settings.environment == "production",
+    same_site="lax",
+    max_age=60 * 60 * 24 * 14,  # 14 days
+)
 app.mount(
     "/static",
     StaticFiles(directory=str(BASE_DIR / "web" / "static")),

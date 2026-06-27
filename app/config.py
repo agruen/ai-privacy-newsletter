@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Signing keys that must never be used in production — the in-repo defaults.
+WEAK_SECRET_KEYS = {"", "change-me", "change-me-in-production"}
+MIN_SECRET_KEY_LEN = 32
 
 
 class Settings(BaseSettings):
@@ -50,6 +55,26 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         return f"sqlite:///{self.data_dir.rstrip('/')}/digest.db"
+
+    @model_validator(mode="after")
+    def _require_strong_secret_in_production(self) -> "Settings":
+        """Refuse to boot in production with a known/weak/short signing key.
+
+        Starlette session cookies are signed (not encrypted) with secret_key, and
+        the session holds the admin's user_id, so a known key means forgeable
+        sessions and full auth bypass. Fail loudly at startup instead.
+        """
+        if self.environment == "production":
+            if (
+                self.secret_key in WEAK_SECRET_KEYS
+                or len(self.secret_key) < MIN_SECRET_KEY_LEN
+            ):
+                raise ValueError(
+                    "APN_SECRET_KEY must be a strong random value of at least "
+                    f"{MIN_SECRET_KEY_LEN} characters in production. Generate one with: "
+                    'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+                )
+        return self
 
 
 @lru_cache

@@ -19,7 +19,11 @@ templates = Jinja2Templates(directory=str(_BASE / "templates"))
 
 
 def render(
-    request: Request, name: str, context: dict[str, Any] | None = None
+    request: Request,
+    name: str,
+    context: dict[str, Any] | None = None,
+    *,
+    status_code: int = 200,
 ) -> HTMLResponse:
     settings = get_settings()
     ctx: dict[str, Any] = {
@@ -31,4 +35,4 @@ def render(
         ctx["user"] = current_user(request, session)
     if context:
         ctx.update(context)
-    return templates.TemplateResponse(request, name, ctx)
+    return templates.TemplateResponse(request, name, ctx, status_code=status_code)

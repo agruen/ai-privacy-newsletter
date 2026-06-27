@@ -40,6 +40,13 @@ sending tool. (Both steps can also run automatically on a cron — see
 All settings are environment variables (prefix `APN_`), shown read-only on the
 **Settings** page. Change them in `.env` and restart the container.
 
+- `APN_SECRET_KEY` — **required in production**: a strong random value of at least
+  32 characters (the app refuses to boot otherwise). It signs the session cookie;
+  a known/weak key allows session forgery. Generate with
+  `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+- `APN_ADMIN_USERNAME` / `APN_ADMIN_PASSWORD` — the admin login, created on first
+  boot. **A password is required on first run**, or no account is created and you
+  cannot log in. Use a long, random password.
 - `APN_ANTHROPIC_API_KEY` — required for the monthly draft.
 - `APN_ANTHROPIC_MONTHLY_BUDGET_USD` (default 100) — hard cap. When reached, LLM
   work pauses and the dashboard shows it; daily ingestion is unaffected (it uses

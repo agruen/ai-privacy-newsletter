@@ -5,8 +5,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    # Publish the plaintext port on loopback only. For public access enable the
+    # `tls` profile below (Caddy reaches the app over the internal Docker network,
+    # not this published port), so credentials never traverse plaintext HTTP.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - digest_data:/data
 

@@ -5,8 +5,18 @@ from __future__ import annotations
 import html as _html
 
 
+def _safe_url(url: str) -> str:
+    """Return the URL only if it uses http(s); else "" so no link is emitted.
+
+    Content URLs come from the LLM and from ingested data and end up in anchor
+    hrefs in the exported HTML, so reject javascript:/data: and other schemes.
+    """
+    u = (url or "").strip()
+    return u if u.lower().startswith(("http://", "https://")) else ""
+
+
 def _url_for(content_item: dict, id_to_url: dict[str, str]) -> str:
-    return id_to_url.get(content_item.get("incident_external_id", ""), "")
+    return _safe_url(id_to_url.get(content_item.get("incident_external_id", ""), ""))
 
 
 def render_markdown(content: dict, id_to_url: dict[str, str] | None = None) -> str:
@@ -40,7 +50,7 @@ def render_markdown(content: dict, id_to_url: dict[str, str] | None = None) -> s
     if reading:
         out.append("## Recommended reading\n")
         for r in reading:
-            title, url, note = r.get("title", ""), r.get("url", ""), r.get("note", "")
+            title, url, note = r.get("title", ""), _safe_url(r.get("url", "")), r.get("note", "")
             label = f"[{title}]({url})" if url else title
             out.append(f"- {label} — {note}" if note else f"- {label}")
         out.append("")
@@ -113,7 +123,7 @@ def render_html(content: dict, id_to_url: dict[str, str] | None = None) -> str:
     if reading:
         parts.append("<h2>Recommended reading</h2><ul>")
         for r in reading:
-            title, url, note = esc(r.get("title", "")), esc(r.get("url", "")), esc(r.get("note", ""))
+            title, url, note = esc(r.get("title", "")), esc(_safe_url(r.get("url", ""))), esc(r.get("note", ""))
             label = f'<a href="{url}">{title}</a>' if url else title
             parts.append(f"<li>{label}{' — ' + note if note else ''}</li>")
         parts.append("</ul>")

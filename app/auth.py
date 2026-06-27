@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import secrets
+import threading
+import time
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -105,3 +107,56 @@ def verify_csrf(request: Request, submitted: str | None) -> bool:
     return bool(expected) and bool(submitted) and secrets.compare_digest(
         expected, submitted
     )
+
+
+# --- Login throttling ------------------------------------------------------
+
+class LoginThrottle:
+    """In-process failed-login limiter with temporary lockout.
+
+    This is a single-admin, single-process app, so an in-memory limiter keyed by
+    client IP is enough and avoids a new dependency. After ``max_failures`` failed
+    attempts within ``window`` seconds, the key is locked for ``lockout`` seconds.
+    A successful login clears the key.
+    """
+
+    def __init__(
+        self, max_failures: int = 5, window: float = 300.0, lockout: float = 900.0
+    ) -> None:
+        self.max_failures = max_failures
+        self.window = window
+        self.lockout = lockout
+        self._failures: dict[str, list[float]] = {}
+        self._locked_until: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def seconds_locked(self, key: str) -> float:
+        """Seconds until the key is allowed to try again (0 if not locked)."""
+        now = time.monotonic()
+        with self._lock:
+            return max(0.0, self._locked_until.get(key, 0.0) - now)
+
+    def record_failure(self, key: str) -> None:
+        now = time.monotonic()
+        with self._lock:
+            hits = [t for t in self._failures.get(key, []) if now - t < self.window]
+            hits.append(now)
+            if len(hits) >= self.max_failures:
+                self._locked_until[key] = now + self.lockout
+                self._failures[key] = []
+            else:
+                self._failures[key] = hits
+
+    def reset(self, key: str) -> None:
+        with self._lock:
+            self._failures.pop(key, None)
+            self._locked_until.pop(key, None)
+
+
+login_throttle = LoginThrottle()
+
+
+def client_key(request: Request) -> str:
+    """Identify the caller for throttling (best-effort client IP)."""
+    client = request.client
+    return client.host if client else "unknown"

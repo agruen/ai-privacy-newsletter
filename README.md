@@ -15,8 +15,10 @@ plan, and [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for day-to-day operations.
 
 ```bash
 cp .env.example .env
-# edit .env — at minimum set APN_SECRET_KEY
-#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+# edit .env — set at least:
+#   APN_SECRET_KEY    (required in production; >=32 random chars)
+#     python -c "import secrets; print(secrets.token_urlsafe(48))"
+#   APN_ADMIN_PASSWORD  (required on first boot to create the admin login)
 docker compose up -d --build
 ```
 

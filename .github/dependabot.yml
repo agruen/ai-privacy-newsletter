@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Keep GitHub Actions current. When actions are pinned to commit SHAs (the
+  # recommended hardening), Dependabot updates the pinned SHA and its version
+  # comment automatically.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Keep Python dependencies patched.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
