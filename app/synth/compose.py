@@ -22,6 +22,7 @@ from app.models import (
 from app.synth import prompts
 from app.synth.ranking import rank, select as select_items
 from app.synth.render import render_text
+from app.synth.screen import screen_incidents
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +74,17 @@ def _replace_prior_drafts(session: Session, period: str, *, keep_id: int) -> Non
     session.commit()
 
 
-def period_incidents(session: Session, period: str) -> list[Incident]:
+def month_incidents(session: Session, period: str) -> list[Incident]:
+    """Every incident dated in the month, regardless of privacy status — the
+    screening pass decides which have a privacy angle."""
     return session.exec(
-        select(Incident)
-        .where(Incident.is_privacy == True)  # noqa: E712
-        .where(Incident.incident_date.startswith(period))
+        select(Incident).where(Incident.incident_date.startswith(period))
     ).all()
+
+
+def privacy_candidates(incidents: list[Incident]) -> list[Incident]:
+    """Incidents eligible for the newsletter: AIID-tagged privacy OR LLM-flagged."""
+    return [i for i in incidents if i.is_privacy or i.llm_privacy_angle]
 
 
 def _style_guide(session: Session) -> str | None:
@@ -100,18 +106,30 @@ def generate_newsletter(
     settings: Settings,
     *,
     regenerate: bool = False,
+    rescreen: bool = False,
 ) -> Newsletter:
-    incidents = period_incidents(session, period)
+    incidents = month_incidents(session, period)
     if not incidents:
-        raise ValueError(f"no privacy incidents found for {period}")
+        raise ValueError(f"no incidents found for {period}")
 
     # Idempotency: refuse to bill a second draft for a month that already has one
-    # unless the operator explicitly asked to regenerate. Checked before any spend.
+    # unless the operator explicitly asked to regenerate. Checked before any spend
+    # (screening or synthesis).
     existing = latest_for_period(session, period)
     if existing and not regenerate:
         raise NewsletterExists(period, existing.id)
 
-    ranked = rank(incidents)
+    # --- screen every incident in the month for a privacy angle ----------
+    # Cached on the incident, so a plain regenerate reuses prior judgments and
+    # only re-screens incidents that are new (or all of them when rescreen=True).
+    _ensure_budget(session, settings)
+    screen_incidents(session, incidents, llm, settings, rescreen=rescreen)
+
+    candidates = privacy_candidates(incidents)
+    if not candidates:
+        raise ValueError(f"no privacy-angle incidents found for {period}")
+
+    ranked = rank(candidates)
     featured, brief, pool = select_items(
         ranked, settings.featured_count, settings.brief_count
     )

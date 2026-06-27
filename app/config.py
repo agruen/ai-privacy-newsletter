@@ -46,10 +46,18 @@ class Settings(BaseSettings):
     anthropic_monthly_budget_usd: float = 100.0
     anthropic_model: str = "claude-opus-4-8"          # synthesis / writing
     anthropic_confirm_model: str = "claude-haiku-4-5"  # cheap member-flag confirm
+    anthropic_screen_model: str = ""                   # privacy screen; "" -> anthropic_model
     synth_effort: str = "high"                         # low|medium|high|xhigh|max
     synth_max_tokens: int = 32000                      # output cap for the draft (streamed)
+    screen_effort: str = "medium"                      # effort for the per-incident screen
+    screen_max_tokens: int = 12000                     # output cap for the screen pass
     featured_count: int = 4                            # featured stories per issue
     brief_count: int = 8                               # brief mentions per issue
+
+    @property
+    def resolved_screen_model(self) -> str:
+        """Model used for the per-incident privacy screen (defaults to the writer)."""
+        return self.anthropic_screen_model or self.anthropic_model
 
     @property
     def resolved_database_url(self) -> str:

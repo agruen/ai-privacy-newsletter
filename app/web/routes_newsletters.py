@@ -109,13 +109,17 @@ def list_page(
     )
 
 
-def _generate_job(period: str, regenerate: bool = False) -> None:
+def _generate_job(period: str, regenerate: bool = False, rescreen: bool = False) -> None:
     try:
-        generate_for_period(period, regenerate=regenerate)
+        generate_for_period(period, regenerate=regenerate, rescreen=rescreen)
     except NewsletterExists:
         logger.info("generate skipped for %s: draft already exists", period)
     except Exception:
         logger.exception("manual generate failed for %s", period)
+
+
+def _truthy(v: str) -> bool:
+    return v.strip().lower() in ("1", "true", "on", "yes")
 
 
 @router.post("/newsletters/generate")
@@ -124,6 +128,7 @@ def generate(
     background: BackgroundTasks,
     period: str = Form(...),
     regenerate: str = Form(""),
+    rescreen: str = Form(""),
     csrf_token: str = Form(""),
     user: AppUser = Depends(require_user),
     session: Session = Depends(get_session),
@@ -131,7 +136,8 @@ def generate(
     if not verify_csrf(request, csrf_token):
         return RedirectResponse("/newsletters?message=Session+expired", status_code=303)
     period = period.strip()
-    regen = regenerate.strip().lower() in ("1", "true", "on", "yes")
+    regen = _truthy(regenerate)
+    rescr = _truthy(rescreen)
 
     # Refuse a duplicate up front so a repeat click doesn't bill a second draft.
     existing = latest_for_period(session, period)
@@ -142,7 +148,7 @@ def generate(
             status_code=303,
         )
 
-    background.add_task(_generate_job, period, regen)
+    background.add_task(_generate_job, period, regen, rescr)
     verb = "Regenerating" if regen else "Generating"
     return RedirectResponse(
         f"/newsletters?message={verb}+draft+for+{period}", status_code=303

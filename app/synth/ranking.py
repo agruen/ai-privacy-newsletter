@@ -20,6 +20,11 @@ CATEGORY_WEIGHT = {
     "other": 1.5,
 }
 
+# How strongly the LLM screen's salience boosts an incident. This lets incidents
+# the source never tagged (so no AIID category) still rank by their privacy
+# relevance, instead of all defaulting to the category floor.
+SALIENCE_WEIGHT = {"high": 3.0, "medium": 1.5, "low": 0.5}
+
 
 @dataclass
 class Ranked:
@@ -31,6 +36,9 @@ def score_incident(incident: Incident) -> float:
     score = 0.0
     cats = json.loads(incident.categories or "[]")
     score += max((CATEGORY_WEIGHT.get(c, 1.0) for c in cats), default=1.0)
+
+    # LLM screen salience (added on top of any AIID category signal).
+    score += SALIENCE_WEIGHT.get((incident.llm_salience or "").lower(), 0.0)
 
     payload = json.loads(incident.raw_payload or "{}")
     reports = (payload.get("reports") or "").strip()

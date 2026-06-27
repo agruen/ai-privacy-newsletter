@@ -91,6 +91,16 @@ class Incident(SQLModel, table=True):
     decided_by: str = ""                       # e.g. "aiid_tags:MIT"
     classified_at: datetime | None = None
 
+    # LLM privacy screening (filled at generation time by app/synth/screen.py).
+    # Unlike the AIID tag above, this is judged for *every* incident in the month
+    # so the newsletter can surface privacy angles the source never tagged.
+    llm_screened: bool = False
+    llm_privacy_angle: bool = False            # LLM found a privacy angle
+    llm_salience: str = ""                     # high | medium | low (newsletter-worthiness)
+    llm_privacy_note: str = ""                 # one-line description of the angle
+    llm_screened_at: datetime | None = None
+    llm_screen_model: str = ""
+
     first_seen: datetime = Field(default_factory=utcnow)
     last_seen: datetime = Field(default_factory=utcnow)
 

@@ -129,12 +129,18 @@
   <h2>Candidate pool ({{ pool | length }})</h2>
   <p class="muted">Other privacy incidents this month — pull one in by adding a story above.</p>
   <table class="table">
-    <thead><tr><th>Date</th><th>Title</th><th>id</th></tr></thead>
+    <thead><tr><th>Date</th><th>Title</th><th>Privacy angle</th><th>id</th></tr></thead>
     <tbody>
       {% for inc in pool %}
       <tr>
         <td>{{ inc.incident_date }}</td>
         <td><a href="{{ inc.url }}" target="_blank" rel="noopener">{{ inc.title }}</a></td>
+        <td>
+          {%- if inc.llm_privacy_note %}{{ inc.llm_privacy_note }}
+            {%- if inc.llm_salience %} <span class="badge">{{ inc.llm_salience }}</span>{% endif %}
+          {%- elif inc.is_privacy %}<span class="muted">AIID-tagged</span>
+          {%- else %}<span class="muted">—</span>{% endif %}
+        </td>
         <td>{{ inc.external_id }}</td>
       </tr>
       {% endfor %}

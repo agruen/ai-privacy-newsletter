@@ -50,6 +50,15 @@ class FakeLLM:
 
     def complete_json(self, *, system, user, schema, model, effort="high", max_tokens=16000):
         self.calls.append({"model": model, "effort": effort})
+        if "screening AI incidents" in user:
+            # Flag every screened incident with a privacy angle (high salience).
+            import re
+            ids = re.findall(r'"external_id": "([^"]+)"', user)
+            return ({"assessments": [
+                        {"incident_external_id": i, "has_privacy_angle": True,
+                         "angle": "test privacy angle", "salience": "high"}
+                        for i in ids]},
+                    Usage(input_tokens=800, output_tokens=200))
         if "member-watch" in user or "FLAGGED MEMBERS" in user:
             return ({"results": [{"member": "Acme AI", "is_about_member": True,
                                   "note": "subject of featured story"}]},
@@ -107,11 +116,12 @@ def test_generate_newsletter_end_to_end():
         assert flags[0].member_name == "Acme AI"
         assert flags[0].confirmed is True
 
-        # Two LLM calls recorded with positive cost.
+        # Three LLM calls recorded with positive cost: screen + synthesis + confirm.
         usage_rows = session.exec(select(LLMUsage)).all()
-        assert len(usage_rows) == 2
+        assert len(usage_rows) == 3
+        assert {u.purpose for u in usage_rows} == {"screen", "synthesis", "member_confirm"}
         assert month_spend(session) > 0
-        # Synthesis used the configured model; confirm used the cheap one.
+        # Screen + synthesis used the configured model; confirm used the cheap one.
         assert {c["model"] for c in llm.calls} == {
             settings.anthropic_model, settings.anthropic_confirm_model
         }
