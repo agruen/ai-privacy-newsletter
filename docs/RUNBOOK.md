@@ -52,6 +52,8 @@ All settings are environment variables (prefix `APN_`), shown read-only on the
   work pauses and the dashboard shows it; daily ingestion is unaffected (it uses
   no LLM).
 - `APN_ANTHROPIC_MODEL` (default `claude-opus-4-8`) — synthesis model.
+- `APN_SYNTH_MAX_TOKENS` (default 32000) — output cap for the drafted issue. If a
+  draft comes back truncated (recorded as an error on the issue), raise this.
 - `APN_FEATURED_COUNT` / `APN_BRIEF_COUNT` — issue size.
 - `APN_SCHEDULER_ENABLED` (default `false`) — when `true`, also runs ingest and
   generation automatically on the cron schedules below; otherwise everything is

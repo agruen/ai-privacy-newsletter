@@ -48,7 +48,7 @@ class FakeLLM:
     def __init__(self):
         self.calls = []
 
-    def complete_json(self, *, system, user, schema, model, effort):
+    def complete_json(self, *, system, user, schema, model, effort="high", max_tokens=16000):
         self.calls.append({"model": model, "effort": effort})
         if "member-watch" in user or "FLAGGED MEMBERS" in user:
             return ({"results": [{"member": "Acme AI", "is_about_member": True,

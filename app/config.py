@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-opus-4-8"          # synthesis / writing
     anthropic_confirm_model: str = "claude-haiku-4-5"  # cheap member-flag confirm
     synth_effort: str = "high"                         # low|medium|high|xhigh|max
+    synth_max_tokens: int = 32000                      # output cap for the draft (streamed)
     featured_count: int = 4                            # featured stories per issue
     brief_count: int = 8                               # brief mentions per issue
 

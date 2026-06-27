@@ -8,7 +8,7 @@ import logging
 from sqlmodel import Session, select
 
 from app.config import Settings
-from app.llm import LLM, BudgetExceeded, month_spend, record_usage
+from app.llm import LLM, BudgetExceeded, LLMError, month_spend, record_usage
 from app.matching import find_member_mentions
 from app.models import (
     Incident,
@@ -118,13 +118,25 @@ def generate_newsletter(
 
     # --- draft the issue -------------------------------------------------
     _ensure_budget(session, settings)
-    content, usage = llm.complete_json(
-        system=prompts.build_system(_style_guide(session)),
-        user=prompts.build_user(period, featured, brief),
-        schema=prompts.NEWSLETTER_SCHEMA,
-        model=settings.anthropic_model,
-        effort=settings.synth_effort,
-    )
+    try:
+        content, usage = llm.complete_json(
+            system=prompts.build_system(_style_guide(session)),
+            user=prompts.build_user(period, featured, brief),
+            schema=prompts.NEWSLETTER_SCHEMA,
+            model=settings.anthropic_model,
+            effort=settings.synth_effort,
+            max_tokens=settings.synth_max_tokens,
+        )
+    except LLMError as exc:
+        # The call may have billed tokens before the response failed to parse;
+        # record that spend so the monthly budget stays accurate, then surface
+        # the failure (the scheduler/route layer records it as a failed run).
+        if exc.usage is not None:
+            record_usage(
+                session, purpose="synthesis", model=settings.anthropic_model,
+                usage=exc.usage,
+            )
+        raise
 
     newsletter = Newsletter(
         period=period,
@@ -188,6 +200,17 @@ def generate_newsletter(
                 )
         except BudgetExceeded:
             logger.warning("budget exceeded — storing member flags unconfirmed")
+        except LLMError as exc:
+            # A bad confirm response must not discard the already-saved draft.
+            if exc.usage is not None:
+                record_usage(
+                    session, purpose="member_confirm",
+                    model=settings.anthropic_confirm_model, usage=exc.usage,
+                    newsletter_id=newsletter.id,
+                )
+            logger.warning(
+                "member-confirm LLM error (%s) — storing flags unconfirmed", exc
+            )
 
     for m in matches:
         confirmed, note = confirmations.get(m.member.name, (None, "not confirmed"))

@@ -33,6 +33,30 @@ class BudgetExceeded(Exception):
     """Raised when the configured monthly LLM budget would be exceeded."""
 
 
+class LLMError(Exception):
+    """The model call returned something we can't use (refusal, truncation, bad JSON).
+
+    Carries the token usage when available so the caller can still record the
+    spend that was incurred before the response failed to parse.
+    """
+
+    def __init__(self, message: str, usage: "Usage | None" = None) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+
+# Models that accept output_config.effort and adaptive thinking. Per the Claude
+# API capability reference, effort and adaptive thinking both error on
+# Haiku 4.5 / Sonnet 4.5; structured outputs (output_config.format) work there.
+EFFORT_THINKING_MODELS = {
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-fable-5",
+}
+
+
 @dataclass
 class Usage:
     input_tokens: int = 0
@@ -95,8 +119,20 @@ def record_usage(
 
 class LLM(Protocol):
     def complete_json(
-        self, *, system: str, user: str, schema: dict, model: str, effort: str
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict,
+        model: str,
+        effort: str = "high",
+        max_tokens: int = 16000,
     ) -> tuple[dict, Usage]: ...
+
+
+# Above this output size the SDK requires streaming (non-streaming requests it
+# estimates will exceed ~10 minutes are refused).
+_STREAM_THRESHOLD = 16000
 
 
 class AnthropicLLM:
@@ -115,21 +151,42 @@ class AnthropicLLM:
         schema: dict,
         model: str,
         effort: str = "high",
+        max_tokens: int = 16000,
     ) -> tuple[dict, Usage]:
-        resp = self._client.messages.create(
-            model=model,
-            max_tokens=16000,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            thinking={"type": "adaptive"},
-            output_config={
-                "effort": effort,
-                "format": {"type": "json_schema", "schema": schema},
-            },
-        )
+        output_config: dict = {"format": {"type": "json_schema", "schema": schema}}
+        params: dict = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+            "output_config": output_config,
+        }
+        # effort + adaptive thinking error on models that don't support them
+        # (e.g. the cheap Haiku confirm model); send them only where valid.
+        if model in EFFORT_THINKING_MODELS:
+            params["thinking"] = {"type": "adaptive"}
+            output_config["effort"] = effort
+
+        if max_tokens > _STREAM_THRESHOLD:
+            with self._client.messages.stream(**params) as stream:
+                resp = stream.get_final_message()
+        else:
+            resp = self._client.messages.create(**params)
+
+        usage = _usage_from_response(resp.usage)
+        stop = getattr(resp, "stop_reason", None)
+        if stop == "refusal":
+            raise LLMError("model refused the request", usage)
+        if stop == "max_tokens":
+            raise LLMError("response truncated (max_tokens) — raise max_tokens", usage)
         text = next((b.text for b in resp.content if b.type == "text"), "")
-        data = json.loads(text)
-        return data, _usage_from_response(resp.usage)
+        if not text.strip():
+            raise LLMError(f"empty/non-text response (stop_reason={stop})", usage)
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise LLMError(f"model returned invalid JSON: {exc}", usage) from exc
+        return data, usage
 
 
 def get_llm(api_key: str) -> LLM:
