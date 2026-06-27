@@ -11,9 +11,27 @@ from app.config import get_settings
 from app.db import get_session
 from app.llm import month_spend
 from app.models import AppUser, Incident, Newsletter, Run
+from app.settings_store import (
+    ANTHROPIC_KEY_SETTING,
+    delete_setting,
+    get_setting,
+    set_setting,
+)
 from app.web.templating import render
 
 router = APIRouter()
+
+
+def _settings_context(session: Session) -> dict:
+    """Shared context for the settings page (key status, etc.)."""
+    settings = get_settings()
+    return {
+        "settings": settings,
+        # Whether an Anthropic key is configured, and from where, without ever
+        # exposing the value itself.
+        "ui_key_set": bool(get_setting(session, ANTHROPIC_KEY_SETTING)),
+        "env_key_set": bool(settings.anthropic_api_key),
+    }
 
 
 @router.get("/")
@@ -56,16 +74,54 @@ def dashboard(
 def settings_page(
     request: Request,
     user: AppUser = Depends(require_user),
+    session: Session = Depends(get_session),
 ):
-    settings = get_settings()
     return render(
         request,
         "settings.html",
         {
-            "settings": settings,
+            **_settings_context(session),
             "message": request.query_params.get("message"),
             "error": None,
         },
+    )
+
+
+@router.post("/settings/anthropic-key")
+def set_anthropic_key(
+    request: Request,
+    api_key: str = Form(""),
+    csrf_token: str = Form(""),
+    user: AppUser = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    if not verify_csrf(request, csrf_token):
+        return RedirectResponse(
+            "/settings?message=Session+expired,+try+again", status_code=303
+        )
+    if not api_key.strip():
+        return RedirectResponse("/settings?message=No+key+entered", status_code=303)
+    set_setting(session, ANTHROPIC_KEY_SETTING, api_key)
+    return RedirectResponse(
+        "/settings?message=Anthropic+API+key+saved", status_code=303
+    )
+
+
+@router.post("/settings/anthropic-key/clear")
+def clear_anthropic_key(
+    request: Request,
+    csrf_token: str = Form(""),
+    user: AppUser = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    if not verify_csrf(request, csrf_token):
+        return RedirectResponse(
+            "/settings?message=Session+expired,+try+again", status_code=303
+        )
+    delete_setting(session, ANTHROPIC_KEY_SETTING)
+    return RedirectResponse(
+        "/settings?message=Stored+key+cleared+(environment+value+now+applies,+if+set)",
+        status_code=303,
     )
 
 
@@ -79,11 +135,11 @@ def change_password(
     user: AppUser = Depends(require_user),
     session: Session = Depends(get_session),
 ):
-    settings = get_settings()
-
     def fail(error: str):
         return render(
-            request, "settings.html", {"settings": settings, "message": None, "error": error}
+            request,
+            "settings.html",
+            {**_settings_context(session), "message": None, "error": error},
         )
 
     if not verify_csrf(request, csrf_token):

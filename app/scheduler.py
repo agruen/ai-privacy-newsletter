@@ -57,11 +57,12 @@ def previous_month(now=None) -> str:
 def generate_for_period(period: str, regenerate: bool = False) -> str:
     """Generate a draft for a period; returns a status detail string."""
     from app.llm import get_llm
+    from app.settings_store import resolve_anthropic_key
     from app.synth.compose import generate_newsletter
 
     settings = get_settings()
     with Session(engine) as session:
-        llm = get_llm(settings.anthropic_api_key)
+        llm = get_llm(resolve_anthropic_key(session, settings))
         nl = generate_newsletter(session, period, llm, settings, regenerate=regenerate)
         return f"period {period}: newsletter #{nl.id} ({nl.note})"
 

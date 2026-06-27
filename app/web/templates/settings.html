@@ -15,10 +15,44 @@
       <tr><th>Scheduler enabled</th><td>{{ settings.scheduler_enabled }}</td></tr>
       <tr><th>Daily ingest (cron, UTC)</th><td>{{ settings.daily_ingest_cron }}</td></tr>
       <tr><th>Monthly synth (cron, UTC)</th><td>{{ settings.monthly_synth_cron }}</td></tr>
-      <tr><th>Anthropic key set</th><td>{{ "yes" if settings.anthropic_api_key else "no" }}</td></tr>
+      <tr><th>Anthropic key</th><td>
+        {%- if ui_key_set %}set (via this page)
+        {%- elif env_key_set %}set (via environment)
+        {%- else %}not set
+        {%- endif %}</td></tr>
       <tr><th>LLM monthly budget</th><td>${{ "%.0f"|format(settings.anthropic_monthly_budget_usd) }}</td></tr>
     </tbody>
   </table>
+</section>
+
+<section class="card">
+  <h2>Anthropic API key</h2>
+  <p class="muted">
+    Used only for the monthly <strong>Generate</strong> step. Stored in the database
+    (the <code>/data</code> volume) and takes precedence over
+    <code>APN_ANTHROPIC_API_KEY</code> from the environment. Takes effect on the
+    next generation — no restart needed.
+  </p>
+  <p>
+    Current:
+    {% if ui_key_set %}<strong>set via this page</strong>
+    {% elif env_key_set %}<strong>set via environment</strong> (<code>APN_ANTHROPIC_API_KEY</code>)
+    {% else %}<strong class="error">not set</strong> — generation will fail until you add one
+    {% endif %}
+  </p>
+  <form method="post" action="/settings/anthropic-key">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ "Replace" if ui_key_set else "Set" }} API key
+      <input type="password" name="api_key" autocomplete="off" placeholder="sk-ant-..." required>
+    </label>
+    <button type="submit" class="btn">Save key</button>
+  </form>
+  {% if ui_key_set %}
+  <form method="post" action="/settings/anthropic-key/clear" style="margin-top:.75rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn">Clear stored key</button>
+  </form>
+  {% endif %}
 </section>
 
 <section class="card">
