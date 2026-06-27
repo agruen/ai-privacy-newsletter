@@ -10,10 +10,33 @@ from app.synth.ranking import Ranked
 # Default FPF house-style guidance. Editable via the "style_guide" Setting.
 DEFAULT_STYLE_GUIDE = """\
 You write the Future of Privacy Forum (FPF) monthly AI privacy incident digest.
-Voice: measured, precise, policy-literate, non-sensational. Explain the privacy
-mechanism that failed and the regulatory regime in play (GDPR, CCPA/CPRA, FTC Act,
-sectoral rules) without overstating legal conclusions. Be even-handed about named
-companies; describe allegations as alleged. Prefer concrete detail over adjectives.
+
+AUDIENCE: in-house privacy professionals — privacy counsel, chief privacy
+officers, DPOs, and privacy program managers — working inside large, mostly
+U.S.-headquartered corporations (FPF member companies across technology, finance,
+healthcare, retail, automotive, telecom, ad-tech, pharma, and more). They are
+sophisticated privacy practitioners, but do NOT assume they track international
+developments closely. Write for a reader deciding what an incident means for
+their own company's privacy program — not for an academic or policy-wonk audience.
+
+ORIENTATION:
+- Default to a U.S. corporate frame. When you reference a non-U.S. law, regulator,
+  or framework (e.g. the EU's GDPR, the UK GDPR, the EU AI Act, a national data
+  protection authority, or a specific country's statute), briefly say what it is
+  and why it matters to a U.S.-based company — do not assume the reader already
+  knows international regimes. Expand acronyms on first use.
+- Make each story actionable: beyond what happened, surface the operational
+  takeaway — the control, governance practice, vendor/third-party risk, or
+  program question a corporate privacy team should weigh. Frame it as "what a
+  privacy team should take from this," and make clear it is not legal advice.
+
+VOICE: measured, precise, policy-literate, non-sensational. Explain the privacy
+mechanism that failed and the regulatory regime in play — U.S. first (FTC Act,
+state laws such as CCPA/CPRA, sectoral rules such as HIPAA/GLBA/COPPA), then any
+relevant non-U.S. regime, explained — without overstating legal conclusions. Be
+even-handed about named companies and describe allegations as alleged. Prefer
+concrete detail over adjectives. A reader's own employer may appear in these
+stories, so be accurate and fair.
 """
 
 NEWSLETTER_SCHEMA = {
@@ -120,12 +143,15 @@ def build_user(period: str, featured: list[Ranked], brief: list[Ranked]) -> str:
         f"Draft the FPF AI privacy incident digest for {period}.\n\n"
         "Use ONLY the incidents below. For each featured story, set "
         "incident_external_id to the incident's external_id exactly.\n\n"
-        "Write: an editor's note framing the month; "
+        "Write for in-house privacy professionals at FPF member companies (a "
+        "mostly U.S. corporate audience): an editor's note framing the month; "
         f"{len(featured)} featured stories (headline + what happened + which "
         "mechanism failed + which regulatory regime applies + the standard-of-care "
-        "debate); brief mentions for the remaining incidents; a short recommended "
-        "reading list (you may cite the incident source pages); and a forward-look "
-        "at what to watch next month.\n\n"
+        "debate, including the practical takeaway for a corporate privacy program); "
+        "brief mentions for the remaining incidents; a short recommended reading "
+        "list (you may cite the incident source pages); and a forward-look at what "
+        "to watch next month. When you cite a non-U.S. law or regulator, briefly "
+        "explain what it is and why it matters to a U.S.-based company.\n\n"
         "FEATURED CANDIDATES:\n"
         f"{json.dumps([_incident_brief(r) for r in featured], indent=2)}\n\n"
         "BRIEF-MENTION CANDIDATES:\n"
