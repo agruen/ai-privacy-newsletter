@@ -21,12 +21,29 @@ import re
 import tarfile
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import httpx
 
 from app.ingest.base import FetchResult, RawItem
 
 logger = logging.getLogger(__name__)
+
+# Stream the snapshot download in chunks so progress can be reported.
+_DOWNLOAD_CHUNK = 256 * 1024
+
+
+def _report(progress: Any | None, **fields) -> None:
+    """Push a progress update if a tracker was supplied (no-op otherwise)."""
+    if progress is not None:
+        progress.update(**fields)
+
+
+def _fmt_mb(downloaded: int, total: int) -> str:
+    mb = downloaded / 1_048_576
+    if total:
+        return f"{mb:.1f} / {total / 1_048_576:.1f} MB"
+    return f"{mb:.1f} MB"
 
 SNAPSHOTS_PAGE = "https://incidentdatabase.ai/research/snapshots/"
 CITE_URL = "https://incidentdatabase.ai/cite/{id}"
@@ -66,14 +83,15 @@ class AIIDSnapshotConnector:
 
     # -- fetch --------------------------------------------------------------
 
-    def fetch(self, cursor: str) -> FetchResult:
+    def fetch(self, cursor: str, progress: Any | None = None) -> FetchResult:
         if self.snapshot_file:
             ts = Path(self.snapshot_file).stem  # arbitrary local cursor
             with open(self.snapshot_file, "rb") as fh:
-                items = self._parse_archive(fh.read())
+                items = self._parse_archive(fh.read(), progress)
             return FetchResult(items=items, cursor=ts, note=f"local:{self.snapshot_file}")
 
         with httpx.Client(follow_redirects=True) as client:
+            _report(progress, phase="checking", message="Checking for a new snapshot…")
             latest = self.latest_snapshot(client)
             if latest is None:
                 return FetchResult(items=[], cursor=cursor, note="no snapshots found")
@@ -81,14 +99,34 @@ class AIIDSnapshotConnector:
             if ts == cursor:
                 return FetchResult(items=[], cursor=cursor, note="no new snapshot")
             logger.info("downloading AIID snapshot %s", url)
-            resp = client.get(url, timeout=self.timeout)
-            resp.raise_for_status()
-            items = self._parse_archive(resp.content)
+            blob = self._download(client, url, progress)
+            items = self._parse_archive(blob, progress)
             return FetchResult(items=items, cursor=ts, note=f"snapshot {ts}")
+
+    def _download(self, client: httpx.Client, url: str, progress: Any | None) -> bytes:
+        """Stream the snapshot to memory, reporting bytes downloaded as we go."""
+        chunks: list[bytes] = []
+        downloaded = 0
+        with client.stream("GET", url, timeout=self.timeout) as resp:
+            resp.raise_for_status()
+            total = int(resp.headers.get("Content-Length") or 0)
+            _report(
+                progress, phase="downloading", download_total=total, downloaded=0,
+                message="Downloading snapshot…",
+            )
+            for chunk in resp.iter_bytes(chunk_size=_DOWNLOAD_CHUNK):
+                chunks.append(chunk)
+                downloaded += len(chunk)
+                _report(
+                    progress, downloaded=downloaded,
+                    message=f"Downloading snapshot… {_fmt_mb(downloaded, total)}",
+                )
+        return b"".join(chunks)
 
     # -- parsing ------------------------------------------------------------
 
-    def _parse_archive(self, blob: bytes) -> list[RawItem]:
+    def _parse_archive(self, blob: bytes, progress: Any | None = None) -> list[RawItem]:
+        _report(progress, phase="parsing", message="Parsing snapshot (decompressing)…")
         with tempfile.TemporaryDirectory() as tmp:
             incidents_rows = self._extract_csv(blob, _INCIDENTS_CSV, tmp)
             mit_rows = self._extract_csv(blob, _MIT_CSV, tmp)
@@ -132,6 +170,7 @@ class AIIDSnapshotConnector:
             len(items),
             len(mit_by_id),
         )
+        _report(progress, parsed=len(items), message=f"Parsed {len(items)} incidents")
         return items
 
     @staticmethod

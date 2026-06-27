@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -68,18 +69,33 @@ def _upsert(session: Session, item: RawItem) -> bool:
     return False
 
 
-def ingest_source(session: Session, source: Source) -> IngestSummary:
+def ingest_source(
+    session: Session, source: Source, progress: Any | None = None
+) -> IngestSummary:
     summary = IngestSummary(source=source.name)
     try:
         connector = build_connector(source)
-        result = connector.fetch(source.cursor)
+        result = connector.fetch(source.cursor, progress)
         summary.fetched = len(result.items)
         summary.note = result.note
-        for item in result.items:
+        total = len(result.items)
+        if progress is not None and total:
+            progress.update(
+                phase="storing", message=f"Storing incidents… 0/{total}"
+            )
+        for i, item in enumerate(result.items, 1):
             if _upsert(session, item):
                 summary.created += 1
             else:
                 summary.updated += 1
+            # Report periodically (and on the last item) to keep the UI live
+            # without a DB/log update per row.
+            if progress is not None and (i % 50 == 0 or i == total):
+                progress.update(
+                    created=summary.created,
+                    updated=summary.updated,
+                    message=f"Storing incidents… {i}/{total}",
+                )
         source.cursor = result.cursor
         source.last_status = "ok"
         source.last_detail = (
@@ -97,6 +113,6 @@ def ingest_source(session: Session, source: Source) -> IngestSummary:
     return summary
 
 
-def run_ingest(session: Session) -> list[IngestSummary]:
+def run_ingest(session: Session, progress: Any | None = None) -> list[IngestSummary]:
     sources = session.exec(select(Source).where(Source.enabled == True)).all()  # noqa: E712
-    return [ingest_source(session, s) for s in sources]
+    return [ingest_source(session, s, progress) for s in sources]

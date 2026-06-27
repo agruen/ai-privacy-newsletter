@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 
 @dataclass
@@ -43,4 +43,4 @@ class SourceConnector(Protocol):
 
     kind: str
 
-    def fetch(self, cursor: str) -> FetchResult: ...
+    def fetch(self, cursor: str, progress: Optional[Any] = None) -> FetchResult: ...

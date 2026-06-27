@@ -9,12 +9,24 @@
     <h2>Ingestion</h2>
     <form method="post" action="/sources/ingest" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="btn">Run ingest now</button>
+      <button type="submit" class="btn" id="ingest-btn">Run ingest now</button>
     </form>
   </div>
   <p class="muted">Incidents: <strong>{{ counts.total }}</strong> total ·
     <strong>{{ counts.privacy }}</strong> privacy ·
     <strong>{{ counts.pending }}</strong> pending classification</p>
+
+  <!-- Live ingest progress (updated by the poller below). -->
+  <div id="ingest-progress" class="meter-block"{% if not progress.status %} hidden{% endif %}>
+    <div class="row-between">
+      <strong>Ingest progress</strong>
+      <span class="badge" id="ip-badge">—</span>
+    </div>
+    <p id="ip-message" class="muted" style="margin:.4rem 0"></p>
+    <div class="meter" id="ip-meter" hidden><div class="meter-fill" id="ip-meter-fill"></div></div>
+    <p id="ip-counts" class="muted" style="margin:.4rem 0"></p>
+    <p id="ip-error" class="error" style="margin:.4rem 0" hidden></p>
+  </div>
 
   <table class="table">
     <thead><tr><th>Source</th><th>Kind</th><th>Enabled</th><th>Last run (UTC)</th><th>Status</th><th>Detail</th></tr></thead>
@@ -33,4 +45,62 @@
   </table>
   <p class="muted">AIID publishes weekly snapshots, so a daily run is a no-op until a new one appears.</p>
 </section>
+
+<script>
+(function () {
+  var card = document.getElementById('ingest-progress');
+  var badge = document.getElementById('ip-badge');
+  var msg = document.getElementById('ip-message');
+  var meter = document.getElementById('ip-meter');
+  var fill = document.getElementById('ip-meter-fill');
+  var counts = document.getElementById('ip-counts');
+  var errEl = document.getElementById('ip-error');
+  var btn = document.getElementById('ingest-btn');
+  var polling = false, sawActive = false;
+
+  function render(s) {
+    if (!s || !s.status) { card.hidden = true; return; }
+    card.hidden = false;
+    var cls = s.active ? 'started' : (s.status === 'ok' ? 'ok' : 'error');
+    badge.className = 'badge badge-' + cls;
+    badge.textContent = s.active ? (s.phase || 'running') : s.status;
+    msg.textContent = s.message || '';
+    if (s.active && s.phase === 'downloading' && s.download_total > 0) {
+      meter.hidden = false;
+      fill.style.width = Math.min(100, Math.round(s.downloaded / s.download_total * 100)) + '%';
+    } else {
+      meter.hidden = true;
+    }
+    var bits = [];
+    if (s.parsed) bits.push(s.parsed + ' parsed');
+    if (s.created || s.updated) bits.push('+' + s.created + ' new, ' + s.updated + ' updated');
+    if (s.classified) bits.push(s.classified + ' classified');
+    counts.textContent = bits.join(' · ');
+    if (s.error) { errEl.hidden = false; errEl.textContent = s.error; } else { errEl.hidden = true; }
+    if (btn) btn.disabled = !!s.active;
+  }
+
+  function poll() {
+    fetch('/sources/status', { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) {
+        if (s) {
+          render(s);
+          if (s.active) { sawActive = true; }
+          else if (sawActive) {  // just finished — refresh once for updated counts/table
+            polling = false;
+            setTimeout(function () { window.location.replace('/sources'); }, 1200);
+            return;
+          }
+        }
+        if (polling) setTimeout(poll, 1500);
+      })
+      .catch(function () { if (polling) setTimeout(poll, 1500); });
+  }
+
+  var initial = {{ progress | tojson }};
+  render(initial);
+  if (initial && initial.active) { polling = true; sawActive = true; poll(); }
+})();
+</script>
 {% endblock %}
