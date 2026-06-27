@@ -127,3 +127,43 @@ def test_no_incidents_raises():
             assert False, "expected ValueError"
         except ValueError:
             pass
+
+
+def test_duplicate_refused_then_regenerated():
+    from app.synth.compose import NewsletterExists
+
+    init_db()
+    settings = get_settings()
+    with Session(engine) as session:
+        _clean(session)
+        session.add(_incident("1", "2026-05-02", ["pii_leakage"], reports="a;b",
+                              harmed="users", title="Acme AI leaked PII"))
+        session.add(Member(name="Acme AI", aliases="[]"))
+        session.commit()
+
+        nl1 = generate_newsletter(session, "2026-05", FakeLLM(), settings)
+
+        # A second plain generate is refused — no duplicate, no extra spend.
+        spend_before = month_spend(session)
+        try:
+            generate_newsletter(session, "2026-05", FakeLLM(), settings)
+            assert False, "expected NewsletterExists"
+        except NewsletterExists as exc:
+            assert exc.newsletter_id == nl1.id
+        assert month_spend(session) == spend_before
+        only = session.exec(
+            select(Newsletter).where(Newsletter.period == "2026-05")
+        ).all()
+        assert len(only) == 1
+
+        # Regenerate replaces the prior draft: still exactly one, with a new id,
+        # and its child rows belong to the new draft only.
+        nl2 = generate_newsletter(session, "2026-05", FakeLLM(), settings, regenerate=True)
+        after = session.exec(
+            select(Newsletter).where(Newsletter.period == "2026-05")
+        ).all()
+        assert len(after) == 1 and after[0].id == nl2.id and nl2.id != nl1.id
+        orphan_items = session.exec(
+            select(NewsletterItem).where(NewsletterItem.newsletter_id == nl1.id)
+        ).all()
+        assert orphan_items == []

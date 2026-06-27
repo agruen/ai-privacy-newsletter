@@ -54,7 +54,7 @@ def previous_month(now=None) -> str:
     return prev.strftime("%Y-%m")
 
 
-def generate_for_period(period: str) -> str:
+def generate_for_period(period: str, regenerate: bool = False) -> str:
     """Generate a draft for a period; returns a status detail string."""
     from app.llm import get_llm
     from app.synth.compose import generate_newsletter
@@ -62,16 +62,22 @@ def generate_for_period(period: str) -> str:
     settings = get_settings()
     with Session(engine) as session:
         llm = get_llm(settings.anthropic_api_key)
-        nl = generate_newsletter(session, period, llm, settings)
+        nl = generate_newsletter(session, period, llm, settings, regenerate=regenerate)
         return f"period {period}: newsletter #{nl.id} ({nl.note})"
 
 
 def monthly_synth() -> None:
     """Draft the previous month's newsletter for human review."""
+    from app.synth.compose import NewsletterExists
+
     period = previous_month()
     try:
         detail = generate_for_period(period)
         _record_run("monthly_synth", "ok", detail)
+    except NewsletterExists:
+        # A draft already exists (e.g. generated manually, or a coalesced refire).
+        # Not an error — skip without re-billing.
+        _record_run("monthly_synth", "ok", f"{period}: draft already exists, skipped")
     except Exception as exc:  # surfaced on the dashboard
         logger.exception("monthly_synth failed")
         _record_run("monthly_synth", "error", f"{period}: {exc}")

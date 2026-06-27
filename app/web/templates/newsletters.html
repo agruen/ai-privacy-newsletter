@@ -11,10 +11,15 @@
     <label>Month (YYYY-MM)
       <input type="text" name="period" value="{{ default_period }}" required>
     </label>
+    <label class="checkbox">
+      <input type="checkbox" name="regenerate" value="on"> Replace existing draft
+    </label>
     <button type="submit" class="btn">Generate</button>
   </form>
   <p class="muted">Drafting runs in the background and uses the Anthropic API.
-    Refresh in a moment for the new issue.</p>
+    If a draft for the month already exists it is not regenerated (and not
+    re-billed) unless you tick <strong>Replace existing draft</strong>. Refresh in a
+    moment for the new issue.</p>
 </section>
 
 <section class="card">

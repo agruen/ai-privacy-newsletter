@@ -26,6 +26,53 @@ from app.synth.render import render_text
 logger = logging.getLogger(__name__)
 
 
+class NewsletterExists(Exception):
+    """Raised when a draft already exists for the period and regenerate is off.
+
+    Generation is the only paid LLM path, and it is triggered by a button, so a
+    repeat click (or generating a month that already has a draft) must not silently
+    bill a second Opus call. Callers either show this to the operator or pass
+    ``regenerate=True`` to deliberately replace the existing draft.
+    """
+
+    def __init__(self, period: str, newsletter_id: int | None) -> None:
+        self.period = period
+        self.newsletter_id = newsletter_id
+        super().__init__(f"a draft for {period} already exists")
+
+
+def latest_for_period(session: Session, period: str) -> Newsletter | None:
+    return session.exec(
+        select(Newsletter)
+        .where(Newsletter.period == period)
+        .order_by(Newsletter.created_at.desc())
+    ).first()
+
+
+def _replace_prior_drafts(session: Session, period: str, *, keep_id: int) -> None:
+    """Delete other drafts for the period and their child rows on regenerate.
+
+    LLMUsage rows are intentionally kept: the money was spent regardless of which
+    draft we retain, so month spend must still reflect it.
+    """
+    others = session.exec(
+        select(Newsletter)
+        .where(Newsletter.period == period)
+        .where(Newsletter.id != keep_id)
+    ).all()
+    for old in others:
+        for item in session.exec(
+            select(NewsletterItem).where(NewsletterItem.newsletter_id == old.id)
+        ).all():
+            session.delete(item)
+        for flag in session.exec(
+            select(MemberFlag).where(MemberFlag.newsletter_id == old.id)
+        ).all():
+            session.delete(flag)
+        session.delete(old)
+    session.commit()
+
+
 def period_incidents(session: Session, period: str) -> list[Incident]:
     return session.exec(
         select(Incident)
@@ -47,11 +94,22 @@ def _ensure_budget(session: Session, settings: Settings) -> None:
 
 
 def generate_newsletter(
-    session: Session, period: str, llm: LLM, settings: Settings
+    session: Session,
+    period: str,
+    llm: LLM,
+    settings: Settings,
+    *,
+    regenerate: bool = False,
 ) -> Newsletter:
     incidents = period_incidents(session, period)
     if not incidents:
         raise ValueError(f"no privacy incidents found for {period}")
+
+    # Idempotency: refuse to bill a second draft for a month that already has one
+    # unless the operator explicitly asked to regenerate. Checked before any spend.
+    existing = latest_for_period(session, period)
+    if existing and not regenerate:
+        raise NewsletterExists(period, existing.id)
 
     ranked = rank(incidents)
     featured, brief, pool = select_items(
@@ -81,6 +139,10 @@ def generate_newsletter(
         session, purpose="synthesis", model=settings.anthropic_model,
         usage=usage, newsletter_id=newsletter.id,
     )
+
+    # On regenerate, drop the prior draft(s) now that the replacement is committed.
+    if regenerate:
+        _replace_prior_drafts(session, period, keep_id=newsletter.id)
 
     for role, group in (("featured", featured), ("brief", brief), ("pool", pool)):
         for i, r in enumerate(group):

@@ -21,6 +21,7 @@ from app.models import (
     utcnow,
 )
 from app.scheduler import generate_for_period, previous_month
+from app.synth.compose import NewsletterExists, latest_for_period
 from app.synth.render import render_html, render_markdown, render_text
 from app.web.templating import render
 
@@ -108,9 +109,11 @@ def list_page(
     )
 
 
-def _generate_job(period: str) -> None:
+def _generate_job(period: str, regenerate: bool = False) -> None:
     try:
-        generate_for_period(period)
+        generate_for_period(period, regenerate=regenerate)
+    except NewsletterExists:
+        logger.info("generate skipped for %s: draft already exists", period)
     except Exception:
         logger.exception("manual generate failed for %s", period)
 
@@ -120,14 +123,29 @@ def generate(
     request: Request,
     background: BackgroundTasks,
     period: str = Form(...),
+    regenerate: str = Form(""),
     csrf_token: str = Form(""),
     user: AppUser = Depends(require_user),
+    session: Session = Depends(get_session),
 ):
     if not verify_csrf(request, csrf_token):
         return RedirectResponse("/newsletters?message=Session+expired", status_code=303)
-    background.add_task(_generate_job, period.strip())
+    period = period.strip()
+    regen = regenerate.strip().lower() in ("1", "true", "on", "yes")
+
+    # Refuse a duplicate up front so a repeat click doesn't bill a second draft.
+    existing = latest_for_period(session, period)
+    if existing and not regen:
+        return RedirectResponse(
+            f"/newsletters?message=A+draft+for+{period}+already+exists.+"
+            "Open+it,+or+tick+Replace+to+regenerate.",
+            status_code=303,
+        )
+
+    background.add_task(_generate_job, period, regen)
+    verb = "Regenerating" if regen else "Generating"
     return RedirectResponse(
-        f"/newsletters?message=Generating+draft+for+{period.strip()}", status_code=303
+        f"/newsletters?message={verb}+draft+for+{period}", status_code=303
     )
 
 

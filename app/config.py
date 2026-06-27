@@ -29,8 +29,10 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = ""
 
-    # Scheduler (cron expressions; see APScheduler CronTrigger).
-    scheduler_enabled: bool = True
+    # Scheduler. Off by default: the app runs on demand from the web UI
+    # (Sources → "Run ingest now", Newsletters → "Generate"). Set
+    # APN_SCHEDULER_ENABLED=true to also run the cron jobs below automatically.
+    scheduler_enabled: bool = False
     daily_ingest_cron: str = "0 7 * * *"      # 07:00 daily
     monthly_synth_cron: str = "0 8 1 * *"     # 08:00 on the 1st
 

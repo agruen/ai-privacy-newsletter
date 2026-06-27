@@ -40,14 +40,20 @@ pytest -q
 
 ## How it works
 
-- **Daily (no LLM, no cost):** downloads the latest AIID weekly snapshot when a new
-  one exists, stores incidents, and flags privacy-relevant ones via AIID's MIT
-  "Privacy & Security" taxonomy tag. Pluggable `SourceConnector` / `Classifier`
-  interfaces leave room for more sources and an LLM classifier later.
-- **Monthly:** ranks the month's privacy incidents, drafts the full newsletter with
-  the Anthropic API (editor's note, 3–5 policy-annotated featured stories, brief
-  mentions, recommended reading, forward-look), flags any FPF-member mention, and
-  presents it for review.
+- **Ingest (button, no LLM, no cost):** click **Run ingest now** on the Sources page
+  to download the latest AIID weekly snapshot (when a new one exists), store
+  incidents, and flag privacy-relevant ones via AIID's MIT "Privacy & Security"
+  taxonomy tag. Pluggable `SourceConnector` / `Classifier` interfaces leave room for
+  more sources and an LLM classifier later.
+- **Generate (button):** click **Generate** on the Newsletters page to rank the
+  month's privacy incidents and draft the full newsletter with the Anthropic API
+  (editor's note, 3–5 policy-annotated featured stories, brief mentions, recommended
+  reading, forward-look), flag any FPF-member mention, and present it for review. A
+  month that already has a draft is not re-billed unless you tick **Replace existing
+  draft**.
+- **Automation (optional):** the app runs on demand by default. Set
+  `APN_SCHEDULER_ENABLED=true` to also run ingest daily and generation monthly on a
+  cron (`APN_DAILY_INGEST_CRON` / `APN_MONTHLY_SYNTH_CRON`, UTC).
 - **Review:** a single-admin web UI to edit every section inline, swap stories from
   the candidate pool, heed member-mention warnings, approve, and export
   (Markdown / Rich HTML / Plain text). It does not send — output only.

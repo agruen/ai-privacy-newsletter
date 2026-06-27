@@ -5,19 +5,23 @@ day-to-day stewardship. Typical effort: about half a day per month.
 
 ## What the system does (one paragraph)
 
-Every day it downloads the latest [AI Incident Database](https://incidentdatabase.ai)
-snapshot (only when a new weekly one exists), stores incidents, and marks the
-privacy-relevant ones using AIID's own MIT-taxonomy "Privacy & Security" tag — no
-LLM, no cost. Once a month it ranks that month's privacy incidents, drafts a full
-newsletter with Anthropic's API, flags any mention of an FPF member, and presents
-the draft for your review. It never sends anything — you export and paste into the
-FPF sending tool.
+You drive it from the web UI. Click **Run ingest now** (Sources page) to download
+the latest [AI Incident Database](https://incidentdatabase.ai) snapshot (only when a
+new weekly one exists), store incidents, and mark the privacy-relevant ones using
+AIID's own MIT-taxonomy "Privacy & Security" tag — no LLM, no cost. Click
+**Generate** (Newsletters page) to rank that month's privacy incidents, draft a full
+newsletter with Anthropic's API, flag any mention of an FPF member, and present the
+draft for your review. It never sends anything — you export and paste into the FPF
+sending tool. (Both steps can also run automatically on a cron — see
+*Configuration* → `APN_SCHEDULER_ENABLED` — but the app runs on demand by default.)
 
 ## Monthly review (the main task)
 
-1. On the **Dashboard**, confirm the month's draft was generated (or open
-   **Newsletters** and click **Generate** for the month — it runs in the
-   background; refresh in a minute).
+1. On the **Sources** page click **Run ingest now** so the month's incidents are
+   current (skip if you have the scheduler on). Then open **Newsletters** and click
+   **Generate** for the month — it runs in the background; refresh in a minute. If a
+   draft for that month already exists it won't be regenerated (or re-billed) unless
+   you tick **Replace existing draft**.
 2. Open the draft. **Read the member-mention banner first** — anything flagged
    "about this member" needs careful editorial judgment before publishing.
 3. Edit any section inline: editor's note, the featured stories (headline + what
@@ -42,7 +46,11 @@ All settings are environment variables (prefix `APN_`), shown read-only on the
   no LLM).
 - `APN_ANTHROPIC_MODEL` (default `claude-opus-4-8`) — synthesis model.
 - `APN_FEATURED_COUNT` / `APN_BRIEF_COUNT` — issue size.
-- `APN_DAILY_INGEST_CRON` / `APN_MONTHLY_SYNTH_CRON` — schedules (UTC cron).
+- `APN_SCHEDULER_ENABLED` (default `false`) — when `true`, also runs ingest and
+  generation automatically on the cron schedules below; otherwise everything is
+  on demand from the web UI.
+- `APN_DAILY_INGEST_CRON` / `APN_MONTHLY_SYNTH_CRON` — schedules (UTC cron), used
+  only when the scheduler is enabled.
 
 ## Re-tuning
 
