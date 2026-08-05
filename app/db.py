@@ -47,6 +47,11 @@ _ADDED_COLUMNS = {
         "llm_privacy_note": "VARCHAR NOT NULL DEFAULT ''",
         "llm_screened_at": "DATETIME",
         "llm_screen_model": "VARCHAR NOT NULL DEFAULT ''",
+        # Email channel (single-incident write-ups + delivery tracking).
+        "writeup_json": "VARCHAR NOT NULL DEFAULT '{}'",
+        "writeup_model": "VARCHAR NOT NULL DEFAULT ''",
+        "writeup_at": "DATETIME",
+        "notified_at": "DATETIME",
     },
 }
 

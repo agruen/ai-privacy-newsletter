@@ -13,8 +13,10 @@ from app.llm import month_spend
 from app.models import AppUser, Incident, Newsletter, Run
 from app.settings_store import (
     ANTHROPIC_KEY_SETTING,
+    DIGEST_TO_SETTING,
     delete_setting,
     get_setting,
+    resolve_digest_to,
     set_setting,
 )
 from app.web.templating import render
@@ -31,6 +33,8 @@ def _settings_context(session: Session) -> dict:
         # exposing the value itself.
         "ui_key_set": bool(get_setting(session, ANTHROPIC_KEY_SETTING)),
         "env_key_set": bool(settings.anthropic_api_key),
+        "ui_digest_to": get_setting(session, DIGEST_TO_SETTING),
+        "effective_digest_to": resolve_digest_to(session, settings),
     }
 
 
@@ -123,6 +127,28 @@ def clear_anthropic_key(
         "/settings?message=Stored+key+cleared+(environment+value+now+applies,+if+set)",
         status_code=303,
     )
+
+
+@router.post("/settings/digest-to")
+def set_digest_to(
+    request: Request,
+    digest_to: str = Form(""),
+    csrf_token: str = Form(""),
+    user: AppUser = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    if not verify_csrf(request, csrf_token):
+        return RedirectResponse(
+            "/settings?message=Session+expired,+try+again", status_code=303
+        )
+    value = digest_to.strip()
+    if value:
+        set_setting(session, DIGEST_TO_SETTING, value)
+        message = "Digest+recipient+saved"
+    else:
+        delete_setting(session, DIGEST_TO_SETTING)
+        message = "Digest+recipient+cleared+(environment+value+now+applies,+if+set)"
+    return RedirectResponse(f"/settings?message={message}", status_code=303)
 
 
 @router.post("/settings/password")

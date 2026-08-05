@@ -101,8 +101,57 @@ class Incident(SQLModel, table=True):
     llm_screened_at: datetime | None = None
     llm_screen_model: str = ""
 
+    # Single-incident write-up (email channel, app/mail). Cached on the incident
+    # so a failed send can be retried without re-billing the research/compose.
+    writeup_json: str = "{}"                   # structured write-up sections
+    writeup_model: str = ""
+    writeup_at: datetime | None = None
+    # When the email channel delivered (or deliberately suppressed) this
+    # incident. NULL means the daily AIID check still owes it a decision.
+    notified_at: datetime | None = Field(default=None, index=True)
+
     first_seen: datetime = Field(default_factory=utcnow)
     last_seen: datetime = Field(default_factory=utcnow)
+
+
+class EmailMessage(SQLModel, table=True):
+    """An email received on the intake mailbox, whatever became of it.
+
+    Every message the poller sees gets a row — including bounces and spam that
+    were skipped without spending a model call — so the Activity page shows the
+    operator everything that arrived and what the app decided about it.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    uid: int = Field(index=True)               # IMAP UID within the folder
+    folder: str = "INBOX"
+    message_id: str = Field(default="", index=True)  # RFC 5322 Message-ID
+    from_addr: str = ""
+    subject: str = ""
+    sent_at: str = ""                          # Date header as ISO, best-effort
+    size: int = 0                              # raw message bytes
+    body_excerpt: str = ""                     # truncated plain text, for review
+    # received | skipped | not_incident | processed | error
+    status: str = Field(default="received", index=True)
+    detail: str = ""                           # human-readable reason/outcome
+    attempts: int = 0                          # processing tries (poison guard)
+    incident_id: int | None = Field(default=None, foreign_key="incident.id")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class OutboundEmail(SQLModel, table=True):
+    """An email the app sent: a single-incident write-up or the daily digest."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str = ""                             # incident | digest
+    to_addr: str = ""
+    subject: str = ""
+    body_excerpt: str = ""                     # first part of the text body
+    incident_ids: str = "[]"                   # JSON list of covered incident ids
+    status: str = "sent"                       # sent | error
+    detail: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Newsletter(SQLModel, table=True):

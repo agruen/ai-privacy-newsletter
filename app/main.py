@@ -17,6 +17,7 @@ from app.db import init_db
 from app.scheduler import start_scheduler, stop_scheduler
 from app.seed import seed_sources, seed_taxonomy
 from app.web import (
+    routes_activity,
     routes_admin,
     routes_auth,
     routes_incidents,
@@ -76,6 +77,7 @@ def healthz() -> JSONResponse:
 
 app.include_router(routes_auth.router)
 app.include_router(routes_admin.router)
+app.include_router(routes_activity.router)
 app.include_router(routes_sources.router)
 app.include_router(routes_taxonomy.router)
 app.include_router(routes_incidents.router)

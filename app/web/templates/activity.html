@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Activity — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Activity</h1>
+
+<section class="card">
+  <h2>Email channel</h2>
+  {% if not email_configured %}
+  <p class="error">Not configured — set the <code>APN_IMAP_*</code> variables (and a
+    digest recipient) to activate the inbox poll and the daily AIID check.</p>
+  {% else %}
+  <p class="muted">
+    Write-ups go to <strong>{{ recipient or "— no recipient configured —" }}</strong>.
+    Last inbox check: {{ last_poll_at or "never" }}{% if last_poll_note %} ({{ last_poll_note }}){% endif %}.
+  </p>
+  {% endif %}
+  <p class="muted">
+    Inbound totals —
+    processed: {{ status_counts.get("processed", 0) }},
+    not an incident: {{ status_counts.get("not_incident", 0) }},
+    skipped: {{ status_counts.get("skipped", 0) }},
+    errors: {{ status_counts.get("error", 0) }}.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Inbound email</h2>
+  {% if emails %}
+  <table class="table">
+    <thead>
+      <tr><th>Received</th><th>From</th><th>Subject</th><th>Status</th><th>Detail</th><th>Incident</th></tr>
+    </thead>
+    <tbody>
+      {% for m in emails %}
+      <tr>
+        <td>{{ m.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ m.from_addr or "—" }}</td>
+        <td>{{ m.subject or "(no subject)" }}</td>
+        <td>{{ m.status }}</td>
+        <td class="muted">{{ m.detail }}</td>
+        <td>{% if m.incident_id %}<a href="/incidents">#{{ m.incident_id }}</a>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No inbound email yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Sent write-ups</h2>
+  {% if outbound %}
+  <table class="table">
+    <thead>
+      <tr><th>Sent</th><th>Kind</th><th>To</th><th>Subject</th><th>Status</th><th>Preview</th></tr>
+    </thead>
+    <tbody>
+      {% for o in outbound %}
+      <tr>
+        <td>{{ o.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ o.kind }}</td>
+        <td>{{ o.to_addr }}</td>
+        <td>{{ o.subject }}</td>
+        <td>{{ o.status }}{% if o.detail %} <span class="muted">({{ o.detail }})</span>{% endif %}</td>
+        <td class="muted">{{ o.body_excerpt[:160] }}{% if o.body_excerpt|length > 160 %}…{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Nothing sent yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Email-channel runs</h2>
+  {% if runs %}
+  <table class="table">
+    <thead>
+      <tr><th>When</th><th>Job</th><th>Status</th><th>Detail</th></tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td>{{ r.started_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ r.job }}</td>
+        <td>{{ r.status }}</td>
+        <td class="muted">{{ r.detail }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No runs recorded yet (quiet polls don't log a run).</p>
+  {% endif %}
+</section>
+{% endblock %}

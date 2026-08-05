@@ -11,6 +11,7 @@ from datetime import timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session
 
 from app.config import get_settings
@@ -89,28 +90,80 @@ def monthly_synth() -> None:
         _record_run("monthly_synth", "error", f"{period}: {exc}")
 
 
+def email_poll() -> None:
+    """Check the intake mailbox for new mail (deterministic UID cursor)."""
+    from app.mail.poll import poll_inbox
+
+    try:
+        with Session(engine) as session:
+            poll_inbox(session, get_settings())
+    except Exception as exc:  # e.g. IMAP down — surfaced on the dashboard
+        logger.exception("email_poll failed")
+        _record_run("email_poll", "error", str(exc))
+
+
+def aiid_check() -> None:
+    """Daily AIID check: ingest, screen what's new, email the digest."""
+    from app.mail.aiid_check import run_aiid_check
+
+    try:
+        with Session(engine) as session:
+            detail = run_aiid_check(session, get_settings())
+        _record_run("aiid_check", "ok", detail)
+    except Exception as exc:
+        logger.exception("aiid_check failed")
+        _record_run("aiid_check", "error", str(exc))
+
+
 def start_scheduler() -> None:
     settings = get_settings()
-    if not settings.scheduler_enabled:
+    email_on = settings.email_configured
+    if not (settings.scheduler_enabled or email_on):
         logger.info("scheduler disabled via settings")
         return
     if scheduler.running:
         return
 
-    scheduler.add_job(
-        daily_ingest,
-        CronTrigger.from_crontab(settings.daily_ingest_cron, timezone="UTC"),
-        id="daily_ingest",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        monthly_synth,
-        CronTrigger.from_crontab(settings.monthly_synth_cron, timezone="UTC"),
-        id="monthly_synth",
-        replace_existing=True,
-    )
+    if settings.scheduler_enabled:
+        scheduler.add_job(
+            daily_ingest,
+            CronTrigger.from_crontab(settings.daily_ingest_cron, timezone="UTC"),
+            id="daily_ingest",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            monthly_synth,
+            CronTrigger.from_crontab(settings.monthly_synth_cron, timezone="UTC"),
+            id="monthly_synth",
+            replace_existing=True,
+        )
+    if email_on:
+        scheduler.add_job(
+            email_poll,
+            IntervalTrigger(minutes=settings.email_poll_minutes),
+            id="email_poll",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
+        scheduler.add_job(
+            aiid_check,
+            # Local-time cron (e.g. noon America/New_York), DST handled by the
+            # trigger — no UTC conversion to maintain by hand.
+            CronTrigger.from_crontab(
+                settings.aiid_check_cron, timezone=settings.aiid_check_tz
+            ),
+            id="aiid_check",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
     scheduler.start()
-    logger.info("scheduler started")
+    logger.info(
+        "scheduler started (cron jobs: %s, email channel: %s)",
+        settings.scheduler_enabled,
+        email_on,
+    )
 
 
 def stop_scheduler() -> None:

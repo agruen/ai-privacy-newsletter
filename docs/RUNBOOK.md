@@ -60,6 +60,42 @@ All settings are environment variables (prefix `APN_`), shown read-only on the
   on demand from the web UI.
 - `APN_DAILY_INGEST_CRON` / `APN_MONTHLY_SYNTH_CRON` — schedules (UTC cron), used
   only when the scheduler is enabled.
+- **Email channel** — `APN_IMAP_HOST` / `APN_IMAP_USERNAME` / `APN_IMAP_PASSWORD`
+  activate it (see `.env.example` for the full list; SMTP settings are derived
+  from IMAP when unset). `APN_DIGEST_TO` — or the Settings page — sets where
+  write-ups go; nothing is sent until it is configured. `APN_EMAIL_ENABLED=false`
+  switches the channel off without removing credentials.
+
+## Email channel (hands-off operation)
+
+When configured, two jobs run automatically:
+
+- **Inbox poll (every `APN_EMAIL_POLL_MINUTES`, default 5).** Deterministic: a
+  UID cursor means only never-seen messages are read, and header checks drop
+  bounces/auto-replies/mailing-list traffic before any model call. Anyone can
+  submit — there is no allowlist — so the poll is throttled
+  (`APN_EMAIL_MAX_PER_POLL` per run) and everything stays under the monthly LLM
+  budget cap. A message judged to report an AI privacy incident is fact-checked
+  with web search, written up, and emailed to the digest recipient; the write-up
+  is cached so retries after a failure never re-bill.
+- **AIID check (daily, `APN_AIID_CHECK_CRON` in `APN_AIID_CHECK_TZ` — default
+  noon Washington DC, DST-aware).** Runs the normal snapshot ingest (free no-op
+  most days), screens only new incidents for a privacy angle, and sends one
+  digest email per run (at most `APN_AIID_DIGEST_MAX` write-ups; extras roll to
+  the next day). The very first run marks everything already in the database as
+  handled — the backlog is never emailed.
+
+Review it all on the **Activity** page: every inbound email with its outcome
+(processed / not an incident / skipped / error, with reasons), every outbound
+send, and recent runs. Incidents created from email join the normal pool, so
+they also appear in the monthly newsletter flow.
+
+Failure behavior: IMAP/SMTP outages surface as `error` runs on the dashboard
+and Activity page; unsent write-ups retry automatically (messages are never
+lost — the cursor only advances past handled mail). A message that repeatedly
+crashes processing is parked as `error` after `APN_EMAIL_MAX_ATTEMPTS` tries so
+it cannot block the queue. When the budget cap is hit, processing pauses and
+resumes automatically once the month rolls over (or the cap is raised).
 
 ## Re-tuning
 

@@ -53,6 +53,21 @@ pytest -q
   reading, forward-look), flag any FPF-member mention, and present it for review. A
   month that already has a draft is not re-billed unless you tick **Replace existing
   draft**.
+- **Email channel (optional, hands-off):** fill in the `APN_IMAP_*` settings and a
+  digest recipient, and the app runs itself over email — no login needed:
+  - **Inbox intake:** every 5 minutes it checks a dedicated IMAP mailbox with a
+    deterministic UID cursor (LLM only ever reads genuinely new mail; bounces,
+    auto-replies, and duplicates are dropped by header checks for free). A message
+    judged to report an AI privacy incident is fact-checked with Anthropic's web
+    search — uncorroborated claims stay attributed to the submitter, never stated
+    as fact — written up in the house format, and emailed to the recipient.
+  - **AIID watch:** daily at noon Washington DC time it checks for a new AIID
+    snapshot (no-op most days; AIID publishes weekly), screens only
+    never-before-seen incidents for a privacy angle, and sends one digest email
+    per run with the write-ups. The first run establishes a baseline so the
+    historical backlog is never emailed.
+  - **Review log:** the **Activity** page records every inbound email (and what
+    was decided about it), every outbound send, and every run.
 - **Automation (optional):** the app runs on demand by default. Set
   `APN_SCHEDULER_ENABLED=true` to also run ingest daily and generation monthly on a
   cron (`APN_DAILY_INGEST_CRON` / `APN_MONTHLY_SYNTH_CRON`, UTC).

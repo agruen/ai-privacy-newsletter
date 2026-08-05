@@ -16,6 +16,9 @@ from app.models import Setting, utcnow
 # Key under which the Anthropic API key is stored in the Setting table.
 ANTHROPIC_KEY_SETTING = "anthropic_api_key"
 
+# Where the email channel sends write-ups (single incidents + daily digest).
+DIGEST_TO_SETTING = "digest_to"
+
 
 def get_setting(session: Session, key: str, default: str = "") -> str:
     """Return the stored value for ``key``, or ``default`` if unset/empty."""
@@ -47,3 +50,8 @@ def delete_setting(session: Session, key: str) -> None:
 def resolve_anthropic_key(session: Session, settings: Settings) -> str:
     """Effective Anthropic API key: a UI-set value wins over the env default."""
     return get_setting(session, ANTHROPIC_KEY_SETTING) or settings.anthropic_api_key
+
+
+def resolve_digest_to(session: Session, settings: Settings) -> str:
+    """Effective write-up recipient: a UI-set value wins over the env default."""
+    return get_setting(session, DIGEST_TO_SETTING) or settings.digest_to

@@ -21,8 +21,33 @@
         {%- else %}not set
         {%- endif %}</td></tr>
       <tr><th>LLM monthly budget</th><td>${{ "%.0f"|format(settings.anthropic_monthly_budget_usd) }}</td></tr>
+      <tr><th>Email channel</th><td>
+        {%- if settings.email_configured %}active — polling {{ settings.imap_username }}
+        every {{ settings.email_poll_minutes }} min; AIID check daily
+        ({{ settings.aiid_check_cron }} {{ settings.aiid_check_tz }})
+        {%- else %}off (set the <code>APN_IMAP_*</code> variables to enable)
+        {%- endif %}</td></tr>
+      <tr><th>Digest recipient</th><td>{{ effective_digest_to or "not set — nothing will be sent" }}</td></tr>
     </tbody>
   </table>
+</section>
+
+<section class="card">
+  <h2>Digest recipient</h2>
+  <p class="muted">
+    Where the email channel sends incident write-ups and the daily AIID digest.
+    Stored in the database and takes precedence over <code>APN_DIGEST_TO</code>
+    from the environment. Takes effect on the next poll — no restart needed.
+    Leave blank and save to fall back to the environment value.
+  </p>
+  <form method="post" action="/settings/digest-to">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Recipient address
+      <input type="email" name="digest_to" autocomplete="off"
+             value="{{ ui_digest_to }}" placeholder="editor@example.org">
+    </label>
+    <button type="submit" class="btn">Save recipient</button>
+  </form>
 </section>
 
 <section class="card">
