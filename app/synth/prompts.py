@@ -25,12 +25,13 @@ ORIENTATION:
   protection authority, or a specific country's statute), briefly say what it is
   and why it matters to a U.S.-based company — do not assume the reader already
   knows international regimes. Expand acronyms on first use.
-- Make each story actionable: beyond what happened, surface the operational
-  takeaway — the control, governance practice, vendor/third-party risk, or
-  program question a corporate privacy team should weigh. Frame it as "what a
-  privacy team should take from this," and make clear it is not legal advice.
+- Make each story actionable: the risk column names the failure pattern and the
+  control or governance gap behind it. That is the whole takeaway — a label and
+  one short sentence, not a paragraph of program advice, and not legal advice.
 
-VOICE: measured, precise, policy-literate, non-sensational. Explain the privacy
+VOICE: measured, precise, policy-literate, non-sensational — and above all
+BRIEF. The digest is a scannable table, not an essay; a reader should absorb a
+row in seconds. Explain the privacy
 mechanism that failed and the regulatory regime in play — U.S. first (FTC Act,
 state laws such as CCPA/CPRA, sectoral rules such as HIPAA/GLBA/COPPA), then any
 relevant non-U.S. regime, explained — without overstating legal conclusions. Be
@@ -159,11 +160,16 @@ def build_user(period: str, rows: list[Ranked]) -> str:
         "incident, no editor's note, no framing prose, no closing section. "
         "Use ONLY the incidents below, one row each, in the order given, and "
         "echo incident_external_id exactly so the row can be matched back.\n\n"
-        "Each row has four written fields:\n"
-        "- headline: a specific, factual headline in title case. Name the actor "
-        "and the failure. No trailing period.\n"
-        "- what_happened: 1-3 sentences of plain fact — who did what to whose "
-        "data, and the outcome. Describe unproven claims as alleged. Do NOT "
+        "Each row has four written fields. BE TERSE: every cell renders in a "
+        "narrow table column, so cut every word that is not load-bearing. The "
+        "word caps below are hard limits, not targets to fill.\n"
+        "- headline: a specific, factual headline in title case, 10 words or "
+        "fewer. Name the actor and the failure. No trailing period.\n"
+        "- what_happened: one or two short sentences, 35 words TOTAL at most — "
+        "who did what to whose data, and the outcome. Skip secondary detail "
+        "(case numbers, precise dollar amounts, official titles, follow-on "
+        "developments); the linked sources carry it. Describe unproven claims "
+        "as alleged, but one 'alleged'/'reportedly' per row is enough. Do NOT "
         "write 'Source:' and do NOT include any URLs or citations: the source "
         "links are added automatically from our own records, and a URL you "
         "write from memory would be wrong.\n"
@@ -172,9 +178,10 @@ def build_user(period: str, rows: list[Ranked]) -> str:
         "(for example 'Shadow AI & Supply Chain Vulnerability', 'Consent "
         "Bypass & Moderation Failure', 'Confused Deputy Scenario'). Reuse the "
         "same label across rows when the pattern is genuinely the same.\n"
-        "- risk_explanation: one sentence naming the specific control or "
-        "governance gap that let it happen — what a corporate privacy program "
-        "should check for. Not legal advice, and no hedging filler.\n\n"
+        "- risk_explanation: one short sentence, 18 words or fewer, naming the "
+        "specific control or governance gap that let it happen. State the gap "
+        "directly — no 'teams should verify that…' framing, no hedging filler, "
+        "no advice boilerplate.\n\n"
         "Keep every field to a single paragraph with no line breaks, no bullet "
         "lists, and no pipe characters: these render inside table cells.\n\n"
         "INCIDENTS:\n"
