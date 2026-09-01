@@ -39,8 +39,7 @@ class ScreenLLM:
             return ({"assessments": out}, Usage(input_tokens=100, output_tokens=50))
         if "FLAGGED MEMBERS" in user or "member-watch" in user:
             return ({"results": []}, Usage(input_tokens=10, output_tokens=5))
-        return ({"editor_note": "n", "featured": [], "brief_mentions": [],
-                 "recommended_reading": [], "forward_look": "f"},
+        return ({"rows": []},
                 Usage(input_tokens=50, output_tokens=20))
 
 

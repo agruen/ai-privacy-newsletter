@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import logging
 import re
 import tarfile
@@ -52,6 +53,69 @@ _SNAPSHOT_RE = re.compile(r'https://[^\s"\']+/backup-(\d{14})\.tar\.bz2')
 # CSV members we care about inside the mongodump snapshot.
 _INCIDENTS_CSV = "incidents.csv"
 _MIT_CSV = "classifications_MIT.csv"
+_REPORTS_CSV = "reports.csv"
+
+# Source links kept per incident. The digest table renders the first few as
+# "Source: [Publisher](url)"; the rest are dead weight in every payload.
+_MAX_REPORT_LINKS = 6
+
+
+def _parse_report_numbers(raw: str) -> list[str]:
+    """The incidents.csv ``reports`` cell is a JSON-ish list: "[2,3,4]"."""
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        # Be forgiving about hand-edited or older formats ("2;3", "2, 3").
+        parsed = [p for p in re.split(r"[;,\s]+", raw.strip("[]")) if p]
+    if isinstance(parsed, (int, str)):
+        parsed = [parsed]          # a lone id: "3" rather than "[3]"
+    if not isinstance(parsed, list):
+        return []
+    return [str(p).strip() for p in parsed if str(p).strip()]
+
+
+def _index_reports(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    """report_number -> the fields the digest needs to cite it."""
+    index: dict[str, dict[str, str]] = {}
+    for row in rows:
+        number = (row.get("report_number") or "").strip()
+        url = (row.get("url") or "").strip()
+        if not number or not url:
+            continue
+        index[number] = {
+            "title": (row.get("title") or "").strip(),
+            "url": url,
+            "source_domain": (row.get("source_domain") or "").strip(),
+            "date_published": (row.get("date_published") or "").strip(),
+        }
+    return index
+
+
+def _report_links(
+    reports_cell: str, index: dict[str, dict[str, str]]
+) -> list[dict[str, str]]:
+    """Resolve an incident's report ids to citable links, in AIID's own order.
+
+    One link per publication: several reports from the same outlet cite the same
+    story, and a row that lists one domain three times reads as noise.
+    """
+    links: list[dict[str, str]] = []
+    seen_domains: set[str] = set()
+    for number in _parse_report_numbers(reports_cell):
+        report = index.get(number)
+        if report is None:
+            continue
+        domain = report["source_domain"].lower().removeprefix("www.")
+        if domain and domain in seen_domains:
+            continue
+        seen_domains.add(domain)
+        links.append({**report, "report_number": number})
+        if len(links) >= _MAX_REPORT_LINKS:
+            break
+    return links
 
 
 class AIIDSnapshotConnector:
@@ -130,12 +194,21 @@ class AIIDSnapshotConnector:
         with tempfile.TemporaryDirectory() as tmp:
             incidents_rows = self._extract_csv(blob, _INCIDENTS_CSV, tmp)
             mit_rows = self._extract_csv(blob, _MIT_CSV, tmp)
+            # Optional: older snapshots may not carry reports.csv. Without it we
+            # simply have no source links, which the renderer handles.
+            try:
+                report_rows = self._extract_csv(blob, _REPORTS_CSV, tmp)
+            except FileNotFoundError:
+                logger.warning("%s not in snapshot; no source links", _REPORTS_CSV)
+                report_rows = []
 
         mit_by_id: dict[str, dict[str, str]] = {}
         for row in mit_rows:
             iid = (row.get("Incident ID") or "").strip()
             if iid:
                 mit_by_id[iid] = row
+
+        reports_by_number = _index_reports(report_rows)
 
         items: list[RawItem] = []
         for row in incidents_rows:
@@ -161,6 +234,11 @@ class AIIDSnapshotConnector:
                             "Alleged harmed or nearly harmed parties", ""
                         ),
                         "reports": row.get("reports", ""),
+                        # Resolved from reports.csv so the digest can cite real
+                        # publications without asking the model for URLs.
+                        "report_links": _report_links(
+                            row.get("reports", ""), reports_by_number
+                        ),
                         "classifications": classifications,
                     },
                 )

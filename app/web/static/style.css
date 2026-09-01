@@ -103,6 +103,7 @@ textarea.copied { outline: 2px solid var(--ok); }
 
 .warn-banner { border-left: 4px solid var(--warn); background: #fff8e6; }
 .story { border: 1px dashed var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.row-meta { margin: 0 0 0.5rem; font-size: 0.85rem; }
 .brief-row { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
 .brief-row textarea, .brief-row input[type=text] { margin-top: 0; }
 .brief-row .checkbox { white-space: nowrap; }

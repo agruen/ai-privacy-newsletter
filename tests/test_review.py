@@ -10,15 +10,12 @@ from app.models import Newsletter
 
 
 SAMPLE = {
-    "editor_note": "Original note.",
-    "featured": [{
+    "rows": [{
         "incident_external_id": "1", "headline": "Original headline",
-        "what_happened": "w", "mechanism_failed": "m",
-        "regime_applies": "GDPR", "standard_of_care": "s",
+        "what_happened": "w",
+        "risk_category": "Vendor Data Exposure",
+        "risk_explanation": "No processor controls.",
     }],
-    "brief_mentions": [{"incident_external_id": "2", "summary": "brief one"}],
-    "recommended_reading": [{"title": "Doc", "url": "https://d", "note": "n"}],
-    "forward_look": "Watch this.",
 }
 
 
@@ -56,21 +53,18 @@ def test_detail_edit_approve_export():
     # Edit: change editor note + headline; keep one of each other section.
     form = {
         "csrf_token": token,
-        "editor_note": "Edited note.",
-        "forward_look": "Edited forward.",
-        "featured-0-incident_external_id": "1",
-        "featured-0-headline": "Edited headline",
-        "featured-0-what_happened": "w", "featured-0-mechanism_failed": "m",
-        "featured-0-regime_applies": "GDPR", "featured-0-standard_of_care": "s",
-        "brief-0-incident_external_id": "2", "brief-0-summary": "brief one",
-        "reading-0-title": "Doc", "reading-0-url": "https://d", "reading-0-note": "n",
+        "row-0-incident_external_id": "1",
+        "row-0-headline": "Edited headline",
+        "row-0-what_happened": "w",
+        "row-0-risk_category": "Vendor Data Exposure",
+        "row-0-risk_explanation": "No processor controls.",
     }
     resp = client.post(f"/newsletters/{nid}/edit", data=form, follow_redirects=True)
     assert resp.status_code == 200
     with Session(engine) as session:
         content = json.loads(session.get(Newsletter, nid).content_json)
-        assert content["editor_note"] == "Edited note."
-        assert content["featured"][0]["headline"] == "Edited headline"
+        assert content["rows"][0]["headline"] == "Edited headline"
+        assert content["rows"][0]["risk_category"] == "Vendor Data Exposure"
 
     # Export page renders all three formats.
     exp = client.get(f"/newsletters/{nid}/export")
@@ -90,24 +84,44 @@ def test_detail_edit_approve_export():
         assert session.get(Newsletter, nid).status == "approved"
     blocked = client.post(
         f"/newsletters/{nid}/edit",
-        data={**form, "editor_note": "should not save"},
+        data={**form, "row-0-headline": "should not save"},
         follow_redirects=True,
     )
     assert blocked.status_code == 200
     with Session(engine) as session:
-        assert json.loads(session.get(Newsletter, nid).content_json)["editor_note"] == "Edited note."
+        saved = json.loads(session.get(Newsletter, nid).content_json)
+        assert saved["rows"][0]["headline"] == "Edited headline"
 
 
-def test_featured_removal_drops_story():
+def test_row_removal_drops_row():
     nid = _seed_newsletter()
     client, token = _client_and_token()
     form = {
-        "csrf_token": token, "editor_note": "n", "forward_look": "f",
-        "featured-0-incident_external_id": "1", "featured-0-headline": "Original headline",
-        "featured-0-what_happened": "w", "featured-0-mechanism_failed": "m",
-        "featured-0-regime_applies": "r", "featured-0-standard_of_care": "s",
-        "featured-0-remove": "on",
+        "csrf_token": token,
+        "row-0-incident_external_id": "1", "row-0-headline": "Original headline",
+        "row-0-what_happened": "w", "row-0-risk_category": "C",
+        "row-0-risk_explanation": "e",
+        "row-0-remove": "on",
     }
     client.post(f"/newsletters/{nid}/edit", data=form, follow_redirects=True)
     with Session(engine) as session:
-        assert json.loads(session.get(Newsletter, nid).content_json)["featured"] == []
+        assert json.loads(session.get(Newsletter, nid).content_json)["rows"] == []
+
+
+def test_removing_a_row_keeps_the_ones_after_it():
+    """The form indexes rows positionally; a removal must not truncate the rest."""
+    nid = _seed_newsletter()
+    client, token = _client_and_token()
+    form = {
+        "csrf_token": token,
+        "row-0-incident_external_id": "1", "row-0-headline": "First",
+        "row-0-what_happened": "w", "row-0-risk_category": "C",
+        "row-0-risk_explanation": "e", "row-0-remove": "on",
+        "row-1-incident_external_id": "2", "row-1-headline": "Second",
+        "row-1-what_happened": "w2", "row-1-risk_category": "C2",
+        "row-1-risk_explanation": "e2",
+    }
+    client.post(f"/newsletters/{nid}/edit", data=form, follow_redirects=True)
+    with Session(engine) as session:
+        rows = json.loads(session.get(Newsletter, nid).content_json)["rows"]
+    assert [r["headline"] for r in rows] == ["Second"]

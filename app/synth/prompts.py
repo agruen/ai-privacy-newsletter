@@ -39,12 +39,14 @@ concrete detail over adjectives. A reader's own employer may appear in these
 stories, so be accurate and fair.
 """
 
-NEWSLETTER_SCHEMA = {
+# The issue is a table: one row per incident. Date, incident number, the AI
+# Incident Database link, and the source links are joined from our own data at
+# render time — never asked of the model, which would invent URLs.
+DIGEST_TABLE_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "editor_note": {"type": "string"},
-        "featured": {
+        "rows": {
             "type": "array",
             "items": {
                 "type": "object",
@@ -53,47 +55,17 @@ NEWSLETTER_SCHEMA = {
                     "incident_external_id": {"type": "string"},
                     "headline": {"type": "string"},
                     "what_happened": {"type": "string"},
-                    "mechanism_failed": {"type": "string"},
-                    "regime_applies": {"type": "string"},
-                    "standard_of_care": {"type": "string"},
+                    "risk_category": {"type": "string"},
+                    "risk_explanation": {"type": "string"},
                 },
                 "required": [
                     "incident_external_id", "headline", "what_happened",
-                    "mechanism_failed", "regime_applies", "standard_of_care",
+                    "risk_category", "risk_explanation",
                 ],
             },
         },
-        "brief_mentions": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "incident_external_id": {"type": "string"},
-                    "summary": {"type": "string"},
-                },
-                "required": ["incident_external_id", "summary"],
-            },
-        },
-        "recommended_reading": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "title": {"type": "string"},
-                    "url": {"type": "string"},
-                    "note": {"type": "string"},
-                },
-                "required": ["title", "note"],
-            },
-        },
-        "forward_look": {"type": "string"},
     },
-    "required": [
-        "editor_note", "featured", "brief_mentions",
-        "recommended_reading", "forward_look",
-    ],
+    "required": ["rows"],
 }
 
 SCREEN_SCHEMA = {
@@ -148,15 +120,26 @@ MEMBER_CONFIRM_SCHEMA = {
 def _incident_brief(r: Ranked) -> dict:
     inc = r.incident
     payload = json.loads(inc.raw_payload or "{}")
+    links = payload.get("report_links") or []
     return {
         "external_id": inc.external_id,
         "date": inc.incident_date,
         "title": inc.title,
         "description": inc.description,
-        "url": inc.url,
         "categories": json.loads(inc.categories or "[]"),
         "deployer": payload.get("deployer", ""),
         "developer": payload.get("developer", ""),
+        # Publications only, never their URLs: the model should know how well
+        # corroborated an incident is without being handed links it might echo
+        # into prose. The renderer attaches the real links afterwards.
+        "reported_by": [
+            d for d in
+            ((link.get("source_domain") or "").strip() for link in links) if d
+        ],
+        "report_headlines": [
+            (link.get("title") or "").strip() for link in links[:3]
+            if (link.get("title") or "").strip()
+        ],
         # The privacy angle the screening pass identified (may be empty for
         # incidents included only via the AIID tag).
         "privacy_angle": inc.llm_privacy_note,
@@ -169,24 +152,33 @@ def build_system(style_guide: str | None) -> str:
     return (style_guide or DEFAULT_STYLE_GUIDE).strip()
 
 
-def build_user(period: str, featured: list[Ranked], brief: list[Ranked]) -> str:
+def build_user(period: str, rows: list[Ranked]) -> str:
     return (
-        f"Draft the FPF AI privacy incident digest for {period}.\n\n"
-        "Use ONLY the incidents below. For each featured story, set "
-        "incident_external_id to the incident's external_id exactly.\n\n"
-        "Write for in-house privacy professionals at FPF member companies (a "
-        "mostly U.S. corporate audience): an editor's note framing the month; "
-        f"{len(featured)} featured stories (headline + what happened + which "
-        "mechanism failed + which regulatory regime applies + the standard-of-care "
-        "debate, including the practical takeaway for a corporate privacy program); "
-        "brief mentions for the remaining incidents; a short recommended reading "
-        "list (you may cite the incident source pages); and a forward-look at what "
-        "to watch next month. When you cite a non-U.S. law or regulator, briefly "
-        "explain what it is and why it matters to a U.S.-based company.\n\n"
-        "FEATURED CANDIDATES:\n"
-        f"{json.dumps([_incident_brief(r) for r in featured], indent=2)}\n\n"
-        "BRIEF-MENTION CANDIDATES:\n"
-        f"{json.dumps([_incident_brief(r) for r in brief], indent=2)}\n"
+        f"Build the FPF AI privacy incident table for {period}.\n\n"
+        "The deliverable is a TABLE, not a written newsletter: one row per "
+        "incident, no editor's note, no framing prose, no closing section. "
+        "Use ONLY the incidents below, one row each, in the order given, and "
+        "echo incident_external_id exactly so the row can be matched back.\n\n"
+        "Each row has four written fields:\n"
+        "- headline: a specific, factual headline in title case. Name the actor "
+        "and the failure. No trailing period.\n"
+        "- what_happened: 1-3 sentences of plain fact — who did what to whose "
+        "data, and the outcome. Describe unproven claims as alleged. Do NOT "
+        "write 'Source:' and do NOT include any URLs or citations: the source "
+        "links are added automatically from our own records, and a URL you "
+        "write from memory would be wrong.\n"
+        "- risk_category: a short governance-risk label in title case, 2-5 "
+        "words, naming the failure pattern a privacy team would recognize "
+        "(for example 'Shadow AI & Supply Chain Vulnerability', 'Consent "
+        "Bypass & Moderation Failure', 'Confused Deputy Scenario'). Reuse the "
+        "same label across rows when the pattern is genuinely the same.\n"
+        "- risk_explanation: one sentence naming the specific control or "
+        "governance gap that let it happen — what a corporate privacy program "
+        "should check for. Not legal advice, and no hedging filler.\n\n"
+        "Keep every field to a single paragraph with no line breaks, no bullet "
+        "lists, and no pipe characters: these render inside table cells.\n\n"
+        "INCIDENTS:\n"
+        f"{json.dumps([_incident_brief(r) for r in rows], indent=2)}\n"
     )
 
 

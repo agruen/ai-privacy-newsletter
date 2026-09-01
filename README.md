@@ -48,11 +48,14 @@ pytest -q
   taxonomy tag. Pluggable `SourceConnector` / `Classifier` interfaces leave room for
   more sources and an LLM classifier later.
 - **Generate (button):** click **Generate** on the Newsletters page to rank the
-  month's privacy incidents and draft the full newsletter with the Anthropic API
-  (editor's note, 3–5 policy-annotated featured stories, brief mentions, recommended
-  reading, forward-look), flag any FPF-member mention, and present it for review. A
-  month that already has a draft is not re-billed unless you tick **Replace existing
-  draft**.
+  month's privacy incidents and draft the issue with the Anthropic API. The issue is
+  a **table**, one row per incident: date, incident number, headline (linked to its
+  AI Incident Database entry), what happened (with links to the reporting we hold on
+  file), and the AI governance risk category. The model writes only the four text
+  cells — dates, numbers, and every link are joined from ingested data, so no URL is
+  ever invented. It also flags any FPF-member mention and presents the draft for
+  review. A month that already has a draft is not re-billed unless you tick
+  **Replace existing draft**.
 - **Email channel (optional, hands-off):** fill in the `APN_IMAP_*` settings and a
   digest recipient, and the app runs itself over email — no login needed:
   - **Inbox intake:** every 5 minutes it checks a dedicated IMAP mailbox with a

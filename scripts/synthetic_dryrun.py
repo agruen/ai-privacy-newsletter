@@ -83,15 +83,11 @@ def main() -> None:
             privacy = period_incidents(session, "2026-05")
             print(f"\nPrivacy incidents for 2026-05: {len(privacy)}")
             ranked = rank(privacy)
-            featured, brief, pool = select(
-                ranked, settings.featured_count, settings.brief_count
-            )
-            print("\nWould be FEATURED:")
-            for r in featured:
+            rows, pool = select(ranked, settings.table_rows)
+            print("\nWould be TABLE ROWS:")
+            for r in rows:
                 print(f"  [{r.score:>4}] {r.incident.title}")
-            print("\nWould be BRIEF mentions:")
-            for r in brief:
-                print(f"  [{r.score:>4}] {r.incident.title}")
+            print(f"\nPooled (available to swap in): {len(pool)}")
             print(
                 "\nThe monthly run would now draft these with the Anthropic API "
                 "and present them for review."

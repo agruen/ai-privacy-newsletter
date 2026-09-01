@@ -18,11 +18,18 @@ from app.models import (
     MemberFlag,
     Newsletter,
     NewsletterItem,
+    Run,
     utcnow,
 )
-from app.scheduler import generate_for_period, previous_month
+from app.scheduler import generate_for_period, previous_month, record_run
 from app.synth.compose import NewsletterExists, latest_for_period
-from app.synth.render import render_html, render_markdown, render_text
+from app.synth.render import (
+    build_context,
+    format_date,
+    render_html,
+    render_markdown,
+    render_text,
+)
 from app.web.templating import render
 
 logger = logging.getLogger(__name__)
@@ -41,50 +48,31 @@ def _items_with_incidents(session: Session, newsletter_id: int):
     return rows
 
 
-def _id_to_url(session: Session, newsletter_id: int) -> dict[str, str]:
-    return {
-        inc.external_id: inc.url
-        for _item, inc in _items_with_incidents(session, newsletter_id)
-    }
+def _row_context(session: Session, newsletter_id: int):
+    """The data-derived half of every row: date, number, and the links."""
+    return build_context(
+        [inc for _item, inc in _items_with_incidents(session, newsletter_id)],
+        get_settings().row_sources_max,
+    )
 
 
 def _build_content_from_form(form) -> dict:
     """Reconstruct the structured content dict from the edit form."""
-    def rows(prefix: str, fields: list[str]) -> list[dict]:
-        out = []
-        i = 0
-        while True:
-            key0 = f"{prefix}-{i}-{fields[0]}"
-            if key0 not in form:
-                break
-            if form.get(f"{prefix}-{i}-remove"):
-                i += 1
-                continue
-            row = {f: (form.get(f"{prefix}-{i}-{f}") or "").strip() for f in fields}
+    rows = []
+    i = 0
+    fields = [
+        "incident_external_id", "headline", "what_happened",
+        "risk_category", "risk_explanation",
+    ]
+    while f"row-{i}-headline" in form:
+        if form.get(f"row-{i}-remove"):
             i += 1
-            out.append(row)
-        return out
-
-    featured = [
-        r for r in rows(
-            "featured",
-            ["incident_external_id", "headline", "what_happened",
-             "mechanism_failed", "regime_applies", "standard_of_care"],
-        ) if r["headline"]
-    ]
-    briefs = [
-        r for r in rows("brief", ["incident_external_id", "summary"]) if r["summary"]
-    ]
-    reading = [
-        r for r in rows("reading", ["title", "url", "note"]) if r["title"]
-    ]
-    return {
-        "editor_note": (form.get("editor_note") or "").strip(),
-        "featured": featured,
-        "brief_mentions": briefs,
-        "recommended_reading": reading,
-        "forward_look": (form.get("forward_look") or "").strip(),
-    }
+            continue
+        row = {f: (form.get(f"row-{i}-{f}") or "").strip() for f in fields}
+        i += 1
+        if row["headline"]:
+            rows.append(row)
+    return {"rows": rows}
 
 
 # -- routes ----------------------------------------------------------------
@@ -98,6 +86,15 @@ def list_page(
     newsletters = session.exec(
         select(Newsletter).order_by(Newsletter.created_at.desc())
     ).all()
+    # Generation runs in the background, so the "Generating..." message above is
+    # only ever a "started". Surface the last outcome so a failed run is visible
+    # here on reload instead of living only in the container log.
+    last_run = session.exec(
+        select(Run)
+        .where(Run.job == "manual_generate")
+        .order_by(Run.id.desc())
+        .limit(1)
+    ).first()
     return render(
         request,
         "newsletters.html",
@@ -105,17 +102,30 @@ def list_page(
             "newsletters": newsletters,
             "default_period": previous_month(),
             "message": request.query_params.get("message"),
+            "last_run": last_run,
         },
     )
 
 
 def _generate_job(period: str, regenerate: bool = False, rescreen: bool = False) -> None:
+    """Run a manual generation, recording the outcome as a Run row.
+
+    This runs as a background task, so the redirect has already been sent and a
+    raised exception would reach nothing but the log. Recording the outcome puts
+    failures on the dashboard next to the scheduled jobs, where an operator will
+    actually see them.
+    """
     try:
-        generate_for_period(period, regenerate=regenerate, rescreen=rescreen)
+        detail = generate_for_period(period, regenerate=regenerate, rescreen=rescreen)
+        record_run("manual_generate", "ok", detail)
     except NewsletterExists:
         logger.info("generate skipped for %s: draft already exists", period)
-    except Exception:
+        record_run(
+            "manual_generate", "ok", f"{period}: draft already exists, skipped"
+        )
+    except Exception as exc:
         logger.exception("manual generate failed for %s", period)
+        record_run("manual_generate", "error", f"{period}: {exc}")
 
 
 def _truthy(v: str) -> bool:
@@ -180,6 +190,8 @@ def detail(
             "content": content,
             "flags": flags,
             "pool": pool,
+            "row_ctx": _row_context(session, nid),
+            "format_date": format_date,
             "message": request.query_params.get("message"),
         },
     )
@@ -251,15 +263,15 @@ def export_page(
     if not nl:
         return RedirectResponse("/newsletters?message=Not+found", status_code=303)
     content = json.loads(nl.content_json or "{}")
-    urls = _id_to_url(session, nid)
+    context = _row_context(session, nid)
     return render(
         request,
         "newsletter_export.html",
         {
             "nl": nl,
-            "markdown": render_markdown(content, urls),
-            "html": render_html(content, urls),
-            "text": render_text(content, urls),
+            "markdown": render_markdown(content, context),
+            "html": render_html(content, context),
+            "text": render_text(content, context),
         },
     )
 
@@ -275,10 +287,10 @@ def download(
     if not nl:
         return PlainTextResponse("Not found", status_code=404)
     content = json.loads(nl.content_json or "{}")
-    urls = _id_to_url(session, nid)
+    context = _row_context(session, nid)
     renderers = {"md": render_markdown, "txt": render_text, "html": render_html}
     fmt = fmt if fmt in renderers else "md"
-    body = renderers[fmt](content, urls)
+    body = renderers[fmt](content, context)
     ext = {"md": "md", "txt": "txt", "html": "html"}[fmt]
     media = {"md": "text/markdown", "txt": "text/plain", "html": "text/html"}[fmt]
     filename = f"ai-privacy-digest-{nl.period}.{ext}"

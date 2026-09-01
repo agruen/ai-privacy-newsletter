@@ -46,79 +46,70 @@
 <p class="muted">This issue is approved and locked. Reopen to edit.</p>
 {% endif %}
 
+{% set rows = content.get('rows', []) %}
+{% if 'rows' not in content %}
+<section class="card warn-banner">
+  <h2>⚠ Drafted in the old newsletter format</h2>
+  <p>
+    This issue was written as prose sections before the digest became a table,
+    so there are no rows to edit or export. Regenerate the period from
+    <a href="/newsletters">Newsletters</a> (tick “Replace”) to draft it as a table.
+  </p>
+</section>
+{% endif %}
+
 <form method="post" action="/newsletters/{{ nl.id }}/edit">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
   <section class="card">
-    <h2>Editor's note</h2>
-    <textarea name="editor_note" rows="4">{{ content.editor_note }}</textarea>
-  </section>
+    <h2>Rows ({{ rows | length }})</h2>
+    <p class="muted">
+      The date, incident number, AI Incident Database link and source links are
+      filled in from the incident record — edit the written cells here.
+    </p>
 
-  <section class="card">
-    <h2>Featured stories</h2>
-    {% for f in content.featured %}
+    {% macro row_meta(ctx) %}
+      {% if ctx %}
+      <p class="muted row-meta">
+        {{ format_date(ctx.date) or "no date" }}
+        {%- if ctx.number %} · AIID #{{ ctx.number }}{% endif %}
+        {%- if ctx.url %} · <a href="{{ ctx.url }}" target="_blank" rel="noopener">incident entry</a>{% endif %}
+        {%- if ctx.sources %} · Source:
+          {%- for s in ctx.sources %}
+          <a href="{{ s.url }}" target="_blank" rel="noopener" title="{{ s.title }}">{{ s.label }}</a>{% if not loop.last %},{% endif %}
+          {%- endfor %}
+        {%- else %} · <span class="muted">no source links on file</span>{% endif %}
+      </p>
+      {% else %}
+      <p class="muted row-meta">No matching incident — this row renders with an empty date and no links.</p>
+      {% endif %}
+    {% endmacro %}
+
+    {% for r in rows %}
     {% set i = loop.index0 %}
     <div class="story">
-      <input type="hidden" name="featured-{{ i }}-incident_external_id" value="{{ f.incident_external_id }}">
-      <label>Headline <input type="text" name="featured-{{ i }}-headline" value="{{ f.headline }}"></label>
-      <label>What happened <textarea name="featured-{{ i }}-what_happened" rows="2">{{ f.what_happened }}</textarea></label>
-      <label>Mechanism that failed <textarea name="featured-{{ i }}-mechanism_failed" rows="2">{{ f.mechanism_failed }}</textarea></label>
-      <label>Regulatory regime <textarea name="featured-{{ i }}-regime_applies" rows="2">{{ f.regime_applies }}</textarea></label>
-      <label>Standard-of-care debate <textarea name="featured-{{ i }}-standard_of_care" rows="2">{{ f.standard_of_care }}</textarea></label>
-      <label class="checkbox"><input type="checkbox" name="featured-{{ i }}-remove"> remove this story</label>
+      <input type="hidden" name="row-{{ i }}-incident_external_id" value="{{ r.incident_external_id }}">
+      {{ row_meta(row_ctx.get(r.incident_external_id)) }}
+      <label>Headline <input type="text" name="row-{{ i }}-headline" value="{{ r.headline }}"></label>
+      <label>What happened <textarea name="row-{{ i }}-what_happened" rows="3">{{ r.what_happened }}</textarea></label>
+      <label>Risk category <input type="text" name="row-{{ i }}-risk_category" value="{{ r.risk_category }}"></label>
+      <label>Risk explanation <textarea name="row-{{ i }}-risk_explanation" rows="2">{{ r.risk_explanation }}</textarea></label>
+      <label class="checkbox"><input type="checkbox" name="row-{{ i }}-remove"> remove this row</label>
     </div>
     {% endfor %}
-    {% set ni = content.featured | length %}
+
+    {% set ni = rows | length %}
     <details class="story">
-      <summary>+ Add a featured story</summary>
-      <input type="hidden" name="featured-{{ ni }}-incident_external_id" value="">
-      <label>Headline <input type="text" name="featured-{{ ni }}-headline"></label>
-      <label>What happened <textarea name="featured-{{ ni }}-what_happened" rows="2"></textarea></label>
-      <label>Mechanism that failed <textarea name="featured-{{ ni }}-mechanism_failed" rows="2"></textarea></label>
-      <label>Regulatory regime <textarea name="featured-{{ ni }}-regime_applies" rows="2"></textarea></label>
-      <label>Standard-of-care debate <textarea name="featured-{{ ni }}-standard_of_care" rows="2"></textarea></label>
+      <summary>+ Add a row</summary>
+      <label>Incident id
+        <input type="text" name="row-{{ ni }}-incident_external_id"
+               placeholder="AIID number, e.g. 1507 — links and date come from it">
+      </label>
+      <label>Headline <input type="text" name="row-{{ ni }}-headline"></label>
+      <label>What happened <textarea name="row-{{ ni }}-what_happened" rows="3"></textarea></label>
+      <label>Risk category <input type="text" name="row-{{ ni }}-risk_category"></label>
+      <label>Risk explanation <textarea name="row-{{ ni }}-risk_explanation" rows="2"></textarea></label>
     </details>
-  </section>
-
-  <section class="card">
-    <h2>Brief mentions</h2>
-    {% for b in content.brief_mentions %}
-    {% set i = loop.index0 %}
-    <div class="brief-row">
-      <input type="hidden" name="brief-{{ i }}-incident_external_id" value="{{ b.incident_external_id }}">
-      <textarea name="brief-{{ i }}-summary" rows="2">{{ b.summary }}</textarea>
-      <label class="checkbox"><input type="checkbox" name="brief-{{ i }}-remove"> remove</label>
-    </div>
-    {% endfor %}
-    {% set nb = content.brief_mentions | length %}
-    <div class="brief-row">
-      <input type="hidden" name="brief-{{ nb }}-incident_external_id" value="">
-      <textarea name="brief-{{ nb }}-summary" rows="2" placeholder="Add a brief mention…"></textarea>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Recommended reading</h2>
-    {% for r in content.recommended_reading %}
-    {% set i = loop.index0 %}
-    <div class="brief-row">
-      <input type="text" name="reading-{{ i }}-title" value="{{ r.title }}" placeholder="Title">
-      <input type="text" name="reading-{{ i }}-url" value="{{ r.url }}" placeholder="URL">
-      <input type="text" name="reading-{{ i }}-note" value="{{ r.note }}" placeholder="Note">
-      <label class="checkbox"><input type="checkbox" name="reading-{{ i }}-remove"> remove</label>
-    </div>
-    {% endfor %}
-    {% set nr = content.recommended_reading | length %}
-    <div class="brief-row">
-      <input type="text" name="reading-{{ nr }}-title" placeholder="Title">
-      <input type="text" name="reading-{{ nr }}-url" placeholder="URL">
-      <input type="text" name="reading-{{ nr }}-note" placeholder="Note">
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>What to watch next month</h2>
-    <textarea name="forward_look" rows="4">{{ content.forward_look }}</textarea>
   </section>
 
   <button type="submit" class="btn">Save changes</button>
@@ -127,7 +118,7 @@
 {% if pool %}
 <section class="card">
   <h2>Candidate pool ({{ pool | length }})</h2>
-  <p class="muted">Other privacy incidents this month — pull one in by adding a story above.</p>
+  <p class="muted">Other privacy incidents this month — pull one in with “Add a row” above, using its id.</p>
   <table class="table">
     <thead><tr><th>Date</th><th>Title</th><th>Privacy angle</th><th>id</th></tr></thead>
     <tbody>

@@ -24,11 +24,13 @@ sending tool. (Both steps can also run automatically on a cron — see
    you tick **Replace existing draft**.
 2. Open the draft. **Read the member-mention banner first** — anything flagged
    "about this member" needs careful editorial judgment before publishing.
-3. Edit any section inline: editor's note, the featured stories (headline + what
-   happened / mechanism that failed / regime that applies / standard-of-care
-   debate), brief mentions, recommended reading, forward-look. Remove weak
-   stories; pull a stronger one from the **candidate pool** by adding a featured
-   story and writing it up.
+3. Edit the rows inline. Each row has four writable cells — headline, what
+   happened, risk category, risk explanation — shown above a grey line with the
+   date, incident number, and links that will be rendered with it. Those come from
+   the incident record and are not editable here. Tick **remove this row** to drop
+   a weak incident; pull a stronger one in with **+ Add a row**, giving its id from
+   the **candidate pool** table at the bottom so it picks up the right date and
+   links.
 4. Click **Save changes** as you go.
 5. When satisfied, click **Approve** (locks the issue). Use **Reopen** if you need
    to edit after approving.

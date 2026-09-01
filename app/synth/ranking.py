@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 
 from app.models import Incident
@@ -32,6 +33,23 @@ class Ranked:
     score: float
 
 
+def _report_count(payload: dict) -> int:
+    """How many independent reports back this incident.
+
+    Prefer the resolved ``report_links`` (deduplicated by publication, so this
+    counts outlets rather than articles). Fall back to the raw ``reports`` cell,
+    which AIID writes as a JSON list of report ids — splitting it on whitespace
+    alone always yielded 1, so corroboration never actually varied.
+    """
+    links = payload.get("report_links")
+    if isinstance(links, list) and links:
+        return len(links)
+    raw = (payload.get("reports") or "").strip()
+    if not raw:
+        return 0
+    return len([r for r in re.split(r"[;,\s]+", raw.strip("[]")) if r])
+
+
 def score_incident(incident: Incident) -> float:
     score = 0.0
     cats = json.loads(incident.categories or "[]")
@@ -41,10 +59,7 @@ def score_incident(incident: Incident) -> float:
     score += SALIENCE_WEIGHT.get((incident.llm_salience or "").lower(), 0.0)
 
     payload = json.loads(incident.raw_payload or "{}")
-    reports = (payload.get("reports") or "").strip()
-    if reports:
-        n = len([r for r in reports.replace(";", " ").split() if r])
-        score += min(n, 6) * 0.4  # corroboration across sources
+    score += min(_report_count(payload), 6) * 0.4  # corroboration across sources
     if (payload.get("harmed_parties") or "").strip():
         score += 1.0
     return round(score, 3)
@@ -58,10 +73,10 @@ def rank(incidents: list[Incident]) -> list[Ranked]:
 
 
 def select(
-    ranked: list[Ranked], featured_count: int, brief_count: int
-) -> tuple[list[Ranked], list[Ranked], list[Ranked]]:
-    """Split ranked incidents into (featured, brief, pool)."""
-    featured = ranked[:featured_count]
-    brief = ranked[featured_count : featured_count + brief_count]
-    pool = ranked[featured_count + brief_count :]
-    return featured, brief, pool
+    ranked: list[Ranked], row_count: int
+) -> tuple[list[Ranked], list[Ranked]]:
+    """Split ranked incidents into the issue's table rows and the leftover pool.
+
+    The pool is what the review UI offers when an editor wants to swap a row.
+    """
+    return ranked[:row_count], ranked[row_count:]

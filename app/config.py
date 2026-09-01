@@ -82,8 +82,8 @@ class Settings(BaseSettings):
     synth_max_tokens: int = 32000                      # output cap for the draft (streamed)
     screen_effort: str = "medium"                      # effort for the per-incident screen
     screen_max_tokens: int = 12000                     # output cap for the screen pass
-    featured_count: int = 4                            # featured stories per issue
-    brief_count: int = 8                               # brief mentions per issue
+    table_rows: int = 12                               # incident rows per issue
+    row_sources_max: int = 3                           # source links rendered per row
 
     @property
     def resolved_screen_model(self) -> str:

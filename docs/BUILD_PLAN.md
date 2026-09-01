@@ -53,14 +53,16 @@ concurrency. Pure-Python stack → multi-arch is free via `docker buildx`.
 - `members` — FPF member name + aliases + notes (CRUD + CSV import).
 - `member_flags` — per-newsletter: member, section, LLM-confirmed yes/no, snippet.
 - `newsletters` — monthly draft: status (`draft`/`approved`), structured content JSON.
-- `newsletter_items` — selected/candidate incidents per issue (featured / brief / pool).
+- `newsletter_items` — selected/candidate incidents per issue (row / pool).
 - `runs` / `llm_usage` — job logs + token/cost accounting for the budget guard.
 - `settings` / `app_user` — config + single admin credential.
 
-Newsletter content is stored as **structured JSON**: editor's note; 3–5 featured
-stories each with `{what happened, which mechanism failed, which regime applies,
-standard-of-care debate}`; brief mentions; recommended reading; forward-look.
-Structured storage makes inline section editing and multi-format export simple.
+Issue content is stored as **structured JSON**: `rows`, each
+`{incident_external_id, headline, what happened, risk category, risk explanation}`.
+Only those cells are model-written. The date, incident number, AI Incident Database
+link, and source links are joined from the incident record at render time, so the
+model is never asked for a URL. Structured storage makes inline row editing and
+multi-format export simple.
 
 ## Pluggable interfaces
 

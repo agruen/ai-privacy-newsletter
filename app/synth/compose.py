@@ -21,7 +21,7 @@ from app.models import (
 )
 from app.synth import prompts
 from app.synth.ranking import rank, select as select_items
-from app.synth.render import render_text
+from app.synth.render import build_context, render_text
 from app.synth.screen import screen_incidents
 
 logger = logging.getLogger(__name__)
@@ -130,17 +130,15 @@ def generate_newsletter(
         raise ValueError(f"no privacy-angle incidents found for {period}")
 
     ranked = rank(candidates)
-    featured, brief, pool = select_items(
-        ranked, settings.featured_count, settings.brief_count
-    )
+    rows, pool = select_items(ranked, settings.table_rows)
 
     # --- draft the issue -------------------------------------------------
     _ensure_budget(session, settings)
     try:
         content, usage = llm.complete_json(
             system=prompts.build_system(_style_guide(session)),
-            user=prompts.build_user(period, featured, brief),
-            schema=prompts.NEWSLETTER_SCHEMA,
+            user=prompts.build_user(period, rows),
+            schema=prompts.DIGEST_TABLE_SCHEMA,
             model=settings.anthropic_model,
             effort=settings.synth_effort,
             max_tokens=settings.synth_max_tokens,
@@ -160,7 +158,7 @@ def generate_newsletter(
         period=period,
         status="draft",
         content_json=json.dumps(content),
-        note=f"{len(featured)} featured, {len(brief)} brief, {len(pool)} pooled",
+        note=f"{len(rows)} rows, {len(pool)} pooled",
     )
     session.add(newsletter)
     session.commit()
@@ -174,7 +172,7 @@ def generate_newsletter(
     if regenerate:
         _replace_prior_drafts(session, period, keep_id=newsletter.id)
 
-    for role, group in (("featured", featured), ("brief", brief), ("pool", pool)):
+    for role, group in (("row", rows), ("pool", pool)):
         for i, r in enumerate(group):
             session.add(
                 NewsletterItem(
@@ -188,8 +186,10 @@ def generate_newsletter(
     session.commit()
 
     # --- member-flag pass ------------------------------------------------
-    id_to_url = {r.incident.external_id: r.incident.url for r in featured + brief}
-    draft_text = render_text(content, id_to_url)
+    context = build_context(
+        [r.incident for r in rows], settings.row_sources_max
+    )
+    draft_text = render_text(content, context)
     members = session.exec(select(Member)).all()
     matches = find_member_mentions(draft_text, members)
 

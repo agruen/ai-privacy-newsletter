@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler(timezone="UTC")
 
 
-def _record_run(job: str, status: str, detail: str = "") -> None:
+def record_run(job: str, status: str, detail: str = "") -> None:
     with Session(engine) as session:
         run = Run(job=job, status=status, detail=detail, finished_at=utcnow())
         session.add(run)
@@ -44,7 +44,7 @@ def daily_ingest() -> None:
     ]
     detail = "; ".join(parts) + f"; classified {classified}"
     status = "error" if any(s.error for s in summaries) else "ok"
-    _record_run("daily_ingest", status, detail)
+    record_run("daily_ingest", status, detail)
 
 
 def previous_month(now=None) -> str:
@@ -80,14 +80,14 @@ def monthly_synth() -> None:
     period = previous_month()
     try:
         detail = generate_for_period(period)
-        _record_run("monthly_synth", "ok", detail)
+        record_run("monthly_synth", "ok", detail)
     except NewsletterExists:
         # A draft already exists (e.g. generated manually, or a coalesced refire).
         # Not an error — skip without re-billing.
-        _record_run("monthly_synth", "ok", f"{period}: draft already exists, skipped")
+        record_run("monthly_synth", "ok", f"{period}: draft already exists, skipped")
     except Exception as exc:  # surfaced on the dashboard
         logger.exception("monthly_synth failed")
-        _record_run("monthly_synth", "error", f"{period}: {exc}")
+        record_run("monthly_synth", "error", f"{period}: {exc}")
 
 
 def email_poll() -> None:
@@ -99,7 +99,7 @@ def email_poll() -> None:
             poll_inbox(session, get_settings())
     except Exception as exc:  # e.g. IMAP down — surfaced on the dashboard
         logger.exception("email_poll failed")
-        _record_run("email_poll", "error", str(exc))
+        record_run("email_poll", "error", str(exc))
 
 
 def aiid_check() -> None:
@@ -109,10 +109,10 @@ def aiid_check() -> None:
     try:
         with Session(engine) as session:
             detail = run_aiid_check(session, get_settings())
-        _record_run("aiid_check", "ok", detail)
+        record_run("aiid_check", "ok", detail)
     except Exception as exc:
         logger.exception("aiid_check failed")
-        _record_run("aiid_check", "error", str(exc))
+        record_run("aiid_check", "error", str(exc))
 
 
 def start_scheduler() -> None:

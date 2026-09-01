@@ -64,15 +64,16 @@ class FakeLLM:
                                   "note": "subject of featured story"}]},
                     Usage(input_tokens=500, output_tokens=100))
         content = {
-            "editor_note": "A busy month for AI privacy. Acme AI featured prominently.",
-            "featured": [{
-                "incident_external_id": "1", "headline": "Acme AI leaked PII",
-                "what_happened": "x", "mechanism_failed": "y",
-                "regime_applies": "GDPR", "standard_of_care": "z",
-            }],
-            "brief_mentions": [{"incident_external_id": "2", "summary": "minor issue"}],
-            "recommended_reading": [{"title": "Report", "url": "https://r", "note": "n"}],
-            "forward_look": "Watch for regulator action.",
+            "rows": [
+                {"incident_external_id": "1", "headline": "Acme AI leaked PII",
+                 "what_happened": "Acme AI exposed customer records.",
+                 "risk_category": "Vendor Data Exposure",
+                 "risk_explanation": "No processor controls on the export path."},
+                {"incident_external_id": "2", "headline": "Minor flaw",
+                 "what_happened": "A smaller issue.",
+                 "risk_category": "Security Hygiene",
+                 "risk_explanation": "Unpatched inference endpoint."},
+            ],
         }
         return (content, Usage(input_tokens=3000, output_tokens=1500))
 
@@ -101,7 +102,7 @@ def test_generate_newsletter_end_to_end():
 
         assert nl.status == "draft"
         content = json.loads(nl.content_json)
-        assert content["featured"][0]["headline"] == "Acme AI leaked PII"
+        assert content["rows"][0]["headline"] == "Acme AI leaked PII"
 
         items = session.exec(
             select(NewsletterItem).where(NewsletterItem.newsletter_id == nl.id)

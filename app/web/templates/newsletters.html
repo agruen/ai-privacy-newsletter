@@ -3,6 +3,13 @@
 {% block content %}
 <h1>Newsletters</h1>
 {% if message %}<p class="success">{{ message }}</p>{% endif %}
+{% if last_run %}
+  {% if last_run.status == "error" %}
+    <p class="error">Last generation attempt failed — {{ last_run.detail }}</p>
+  {% else %}
+    <p class="success">Last generation: {{ last_run.detail }}</p>
+  {% endif %}
+{% endif %}
 
 <section class="card">
   <h2>Generate a draft</h2>
