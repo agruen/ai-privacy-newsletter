@@ -1,5 +1,25 @@
 # Handoff — newsletter → table format
 
+**Completed 2026-09-01, same day.** All four open items were closed from a local
+machine (the droplet lacks the RAM to run Claude Code):
+
+1. Backfill ran on the droplet (`scripts/backfill_report_links.py`, recommitted):
+   all 1,643 pre-change incidents now carry `report_links`; a manual ingest then
+   picked up snapshot `20260831101113` (+13 new, 1,656 total).
+2. Redeployed — the droplet runs `main` with the table change.
+3. Draft id 2 (2026-07, prose) left as a historical artifact; the warning banner
+   renders instead of crashing.
+4. First real generation ran against `DIGEST_TABLE_SCHEMA`: newsletter #3
+   (2026-08), 7 rows, ~$0.13. Zero URLs or "Source:" prefixes in the model
+   cells; risk-category labels repeat across rows with the same pattern, as the
+   prompt asks. Detail and export pages verified live over HTTPS.
+
+Still open (deliberate): the digest recipient is unset — see the last section.
+
+The original note follows for context.
+
+---
+
 **Written 2026-09-01.** The droplet this repo is deployed on does not have enough
 RAM to keep running Claude Code, so the remaining work moves to a local machine.
 This note is the state of play as of the last commit on `main`.
